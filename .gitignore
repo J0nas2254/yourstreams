@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+
+# Next.js
+.next/
+out/
+out-next/
+
+# Env / secrets
+.env
+.env*.local
+.env*.development
+*.log
+
+# Capacitor / Android
+android/app/build/
+android/build/
+android/.gradle/
+android/local.properties
+android/captain-data/
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
