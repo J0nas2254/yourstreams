@@ -1,0 +1,26 @@
+{
+  "name": "streamfinder",
+  "version": "1.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "build:android": "node scripts/build-android.mjs",
+    "postbuild:android": "next build",
+    "test": "node --test \"tests/*.test.mjs\""
+  },
+  "dependencies": {
+    "next": "14.2.35",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.6.2",
+    "@capacitor/core": "8.6.2",
+    "@types/node": "20.14.0",
+    "@types/react": "18.3.3",
+    "@types/react-dom": "18.3.0",
+    "typescript": "5.5.4"
+  }
+}
