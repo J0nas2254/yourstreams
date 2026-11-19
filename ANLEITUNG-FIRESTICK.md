@@ -1,12 +1,12 @@
-# StreamFinder: Vom MacBook auf den Fire TV Stick
+# StreamFinder: Vom MacBook oder PC auf den Fire TV Stick
 
 Zwei Wege, vom einfachen Test bis zur festen App. Nichts davon macht die Seite öffentlich.
 
 ## Weg A: Schnell testen (empfohlen für den Anfang)
 
-Das MacBook bleibt der Server, der Fire TV Stick öffnet die Seite nur im Silk-Browser im gleichen WLAN.
+MacBook **oder** Windows-PC bleibt der Server, der Fire TV Stick öffnet die Seite nur im Silk-Browser im gleichen WLAN.
 
-### 1. MacBook vorbereiten
+### 1a. MacBook vorbereiten
 
 ```bash
 cd yourstreams
@@ -17,13 +17,29 @@ npm run dev -- -H 0.0.0.0 -p 3000
 
 Terminal offen lassen. Test auf dem Mac: `http://localhost:3000` muss laden.
 
-### 2. IP vom Mac finden
+### 1b. Windows-PC vorbereiten (statt MacBook)
 
-`Systemeinstellungen > WLAN > Details` beim verbundenen WLAN, z. B. `192.168.1.50`. Aufschreiben.
+PowerShell im Projektordner öffnen (dort, wo `package.json` liegt, z. B. `C:\Users\jonas\yourstreams`):
+
+```powershell
+cd C:\Users\jonas\yourstreams
+git pull origin main
+npm install
+npm run dev -- -H 0.0.0.0 -p 3000
+```
+
+PowerShell-Fenster offen lassen. Test auf dem PC: `http://localhost:3000` muss laden.
+
+Beim ersten Start fragt Windows evtl. nach Firewall-Zugriff -> `Zugriff zulassen` (private Netzwerke).
+
+### 2. IP vom Mac / PC finden
+
+- Mac: `Systemeinstellungen > WLAN > Details` beim verbundenen WLAN, z. B. `192.168.1.50`. Aufschreiben.
+- Windows-PC: PowerShell `ipconfig` eingeben, bei WLAN-Adapter nach `IPv4-Adresse` schauen, z. B. `192.168.1.60`. Alternativ `Einstellungen > Netzwerk und Internet > WLAN > Hardwareeigenschaften`.
 
 ### 3. Fire TV Stick öffnen
 
-1. Stick und MacBook ins gleiche WLAN (kein Gast-WLAN, kein Hotspot).
+1. Stick und MacBook / PC ins gleiche WLAN (kein Gast-WLAN, kein Hotspot).
 2. App **Silk Browser** öffnen (vorinstalliert, sonst aus dem Amazon Appstore laden).
 3. In die Adresszeile eingeben (eigene IP einsetzen):
 
@@ -54,15 +70,16 @@ Keys niemals in den Chat, in E-Mails oder in Git schreiben.
 ### Wenn es nicht lädt
 
 - Gleiches WLAN? Auf beiden Geräten prüfen.
-- Mac schläft ein? `Systemeinstellungen > Energie` bzw. Deckel offen lassen.
+- Mac schläft ein? `Systemeinstellungen > Energie` bzw. Deckel offen lassen. PC schläft ein? `Einstellungen > System > Energie` auf `Nie` für den Test.
 - Mac-Firewall blockt? `Systemeinstellungen > Netzwerk > Firewall` testweise aus, dann erneut versuchen.
+- Windows-Firewall blockt? `Windows-Sicherheit > Firewall` -> Node.js zulassen, oder testweise privates Netzwerk freigeben.
 - Anderer Port belegt? Dann z. B. `-p 3100` nehmen und auf dem Stick `http://IP:3100` öffnen.
 
-Nachteil von Weg A: MacBook muss an und im gleichen WLAN bleiben.
+Nachteil von Weg A: MacBook / PC muss an und im gleichen WLAN bleiben.
 
 ---
 
-## Weg B: Feste App als APK (ohne MacBook schauen)
+## Weg B: Feste App als APK (ohne MacBook / PC schauen)
 
 Die Web-App wird per Capacitor als Hülle (WebView) verpackt. Die APK enthält **keinen Server**: Für echte Daten braucht sie ein erreichbares HTTPS-Backend (diese App selbst gehostet) und beim Build `NEXT_PUBLIC_API_BASE`.
 
@@ -73,17 +90,26 @@ Aktuell sind beide Freebuff-Umgebungen auf Wunsch **offline / privat**:
 
 Solange das Backend offline ist, zeigt die APK nur die Einrichtungsmeldung, keine Titel. Erst Backend wieder publishen (oder eigenes Heim-Backend), dann APK bauen.
 
-### 1. Voraussetzungen auf dem Mac (einmalig)
+### 1. Voraussetzungen auf Mac oder PC (einmalig)
 
-- Node.js 18+, Xcode Command Line Tools
+- Node.js 18+ (Mac zusätzlich: Xcode Command Line Tools)
 - **JDK 17**, Android SDK (Platform, Build-Tools, Platform-Tools / `adb`), `ANDROID_HOME` gesetzt, SDK-Lizenzen akzeptiert
 
-Prüfen mit:
+Prüfen mit (Mac: Terminal, PC: PowerShell):
 
 ```bash
 java -version
-echo $ANDROID_HOME
 adb version
+```
+
+```bash
+# nur Mac:
+echo $ANDROID_HOME
+```
+
+```powershell
+# nur Windows-PC:
+$env:ANDROID_HOME
 ```
 
 ### 2. APK bauen
@@ -98,7 +124,8 @@ NEXT_PUBLIC_API_BASE=https://streamfinder-jrwh3e.freebuff.site npm run build:and
 npx cap sync android
 
 cd android
-./gradlew assembleDebug
+./gradlew assembleDebug      # Mac/Linux
+.\gradlew assembleDebug     # Windows-PC (PowerShell)
 # Ergebnis: android/app/build/outputs/apk/debug/app-debug.apk
 ```
 
@@ -111,7 +138,7 @@ Hinweise:
 ### 3. APK auf den Stick laden (Sideloading)
 
 1. Fire TV: `Einstellungen > Mein Fire TV > Entwickleroptionen > ADB-Debugging` an. IP unter `Info > Netzwerk` notieren.
-2. Auf dem Mac:
+2. Auf dem Mac / PC (Terminal bzw. PowerShell):
 
 ```bash
 adb connect <fire-tv-ip>:5555
@@ -127,7 +154,7 @@ Einschränkung: Ein APK läuft nur auf kompatiblen **Fire-OS-Geräten**, nicht a
 
 ## Welchen Weg nehmen?
 
-- Heute Abend schauen: **Weg A**.
-- Dauerhaft ohne MacBook: Backend wieder online nehmen + **Weg B**.
+- Heute Abend schauen: **Weg A** (Mac oder PC, was gerade da ist).
+- Dauerhaft ohne MacBook / PC: Backend wieder online nehmen + **Weg B**.
 
 Quellen: `README.md` (Abschnitte Start, Android-APK & Fire TV, Hosting), `capacitor.config.ts` (`webDir: out-next`), `scripts/build-android.mjs`, `package.json`-Skripte.
