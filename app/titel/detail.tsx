@@ -78,7 +78,10 @@ export default function TitelDetail() {
 
   const grouped = AVAILABILITY_ORDER.map((kind) => ({
     kind,
-    entries: title.availability.filter((a) => a.kind === kind)
+    // Gleicher Anbieter ggf. mehrfach in der API-Antwort -> pro Art nur 1x zeigen.
+    entries: title.availability
+      .filter((a) => a.kind === kind)
+      .filter((a, i, arr) => arr.findIndex((b) => b.provider_id === a.provider_id) === i)
   })).filter((g) => g.entries.length > 0);
 
   const bg = backdropUrl(title.backdropPath, "w1280");

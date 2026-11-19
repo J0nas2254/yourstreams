@@ -12,6 +12,7 @@ import { useTvFocus } from "@/lib/tv-focus";
 import ImdbBadge from "@/components/imdb-badge";
 import TitleActions from "@/components/title-actions";
 import { FREE_TV_ID, FREE_TV_LABEL, filterFreeProviders } from "@/lib/free-tv";
+import ProviderGroupList from "@/components/provider-group-list";
 import "./tv.css";
 
 type Tab = "suchen" | "dienste" | "liste";
@@ -466,39 +467,17 @@ export default function TvPage() {
           <p className="max-w-3xl text-2xl text-slate-300">
             Wähle mit OK deine Haushalts-Abos. Echte Anbieterliste von TMDb (DE). Alles bleibt auf diesem Gerät.
           </p>
-          <ul className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-            <li>
-              <button
-                data-tv
-                type="button"
-                onClick={() => toggleService(FREE_TV_ID)}
-                aria-pressed={services.includes(FREE_TV_ID)}
-                className="tv-focusable flex w-full items-center justify-between rounded-3xl p-6 text-2xl font-bold bg-white text-slate-900"
-              >
-                <span>{FREE_TV_LABEL}</span>
-                <span aria-hidden>{services.includes(FREE_TV_ID) ? "✓" : "○"}</span>
-              </button>
-            </li>
-            {filterFreeProviders(providers).map((p) => {
-              const active = services.includes(p.provider_id);
-              return (
-                <li key={p.provider_id}>
-                  <button
-                    data-tv
-                    type="button"
-                    onClick={() => toggleService(p.provider_id)}
-                    aria-pressed={active}
-                    className={`tv-focusable flex w-full items-center justify-between rounded-3xl p-6 text-2xl font-bold ${
-                      active ? "bg-emerald-400 text-slate-900" : "bg-white text-slate-900"
-                    }`}
-                  >
-                    <span>{p.provider_name}</span>
-                    <span aria-hidden>{active ? "✓" : "○"}</span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+          <button
+            data-tv
+            type="button"
+            onClick={() => toggleService(FREE_TV_ID)}
+            aria-pressed={services.includes(FREE_TV_ID)}
+            className="tv-focusable flex w-full items-center justify-between rounded-3xl p-6 text-2xl font-bold bg-white text-slate-900"
+          >
+            <span>{FREE_TV_LABEL}</span>
+            <span aria-hidden>{services.includes(FREE_TV_ID) ? "✓" : "○"}</span>
+          </button>
+          <ProviderGroupList large providers={filterFreeProviders(providers)} services={services} onToggle={toggleService} />
         </section>
       )}
 
@@ -541,7 +520,7 @@ export default function TvPage() {
               </p>
             ) : (
               <div className="mt-3 flex flex-wrap gap-2">
-                {detail.availability.map((a, i) => (
+                {detail.availability.filter((a, i, arr) => arr.findIndex((b) => b.provider_id === a.provider_id && b.kind === a.kind) === i).map((a, i) => (
                   <span key={`${a.provider_id}-${i}`} className="rounded-full bg-white/10 px-4 py-2 text-xl">
                     {a.provider_name} · {a.kind === "flatrate" ? "Abo" : a.kind === "free" ? "Kostenlos" : a.kind === "ads" ? "Werbung" : a.kind === "rent" ? "Leihen" : "Kaufen"}
                   </span>

@@ -9,6 +9,7 @@ import { applySearchFilters } from "@/lib/prefs.ts";
 import { ProviderBadge } from "@/components/badges";
 import PosterCard from "@/components/poster-card";
 import { filterFreeProviders } from "@/lib/free-tv";
+import { groupProviders } from "@/lib/provider-groups";
 import SetupNotice from "@/components/setup-notice";
 
 function SucheInner() {
@@ -274,9 +275,17 @@ function SucheInner() {
           <select value={providerId} onChange={(e) => setProviderId(e.target.value)} className={inputCls}>
             <option value="">Alle Anbieter</option>
             <option value="-1">Free TV (kostenlos)</option>
-            {filterFreeProviders(providers).filter((p) => p.provider_id !== -1).map((p) => (
-              <option key={p.provider_id} value={p.provider_id}>{p.provider_name}</option>
-            ))}
+            {groupProviders(filterFreeProviders(providers).filter((p) => p.provider_id !== -1)).map((g) =>
+              g.items.length === 1 ? (
+                <option key={g.items[0].provider_id} value={g.items[0].provider_id}>{g.items[0].provider_name}</option>
+              ) : (
+                <optgroup key={g.key} label={`${g.label} (${g.items.length})`}>
+                  {g.items.map((p) => (
+                    <option key={p.provider_id} value={p.provider_id}>{p.provider_name}</option>
+                  ))}
+                </optgroup>
+              )
+            )}
           </select>
         </label>
         <label className={labelCls}>
