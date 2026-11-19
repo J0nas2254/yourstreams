@@ -4,10 +4,11 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import type { Genre, Title } from "@/lib/types";
 import { ApiError, apiGenres, apiImdbRating, apiProviders, apiSearch } from "@/lib/api.ts";
-import { isOnMyServices, usePrefs } from "@/lib/store";
+import { isOnMyServicesEntries, usePrefs } from "@/lib/store";
 import { applySearchFilters } from "@/lib/prefs.ts";
 import { ProviderBadge } from "@/components/badges";
 import PosterCard from "@/components/poster-card";
+import { filterFreeProviders } from "@/lib/free-tv";
 import SetupNotice from "@/components/setup-notice";
 
 function SucheInner() {
@@ -146,7 +147,7 @@ function SucheInner() {
     () =>
       new Set(
         filtered
-          .filter((t) => isOnMyServices(t.availability.map((a) => a.provider_id), prefs.services))
+          .filter((t) => isOnMyServicesEntries(t.availability, prefs.services))
           .map((t) => t.id)
       ),
     [filtered, prefs.services]
@@ -214,7 +215,8 @@ function SucheInner() {
           Anbieter
           <select value={providerId} onChange={(e) => setProviderId(e.target.value)} className={inputCls}>
             <option value="">Alle Anbieter</option>
-            {providers.map((p) => (
+            <option value="-1">Free TV (kostenlos)</option>
+            {filterFreeProviders(providers).filter((p) => p.provider_id !== -1).map((p) => (
               <option key={p.provider_id} value={p.provider_id}>{p.provider_name}</option>
             ))}
           </select>

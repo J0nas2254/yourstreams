@@ -14,7 +14,7 @@ export async function GET(req: Request) {
   const ids = (url.searchParams.get("providers") ?? "")
     .split(",")
     .map((s) => Number(s.trim()))
-    .filter((n) => Number.isFinite(n) && n > 0)
+    .filter((n) => Number.isFinite(n) && (n > 0 || n === -1))
     .slice(0, 20);
   if (ids.length === 0) return NextResponse.json({ configured: true, results: [] });
   try {

@@ -3,9 +3,10 @@
 import { useCallback, useEffect, useState } from "react";
 import type { Prefs } from "./types.ts";
 import { PREFS_KEY, emptyPrefs, migrateLegacy } from "./prefs.ts";
-import { isOnMyServices } from "./filter.ts";
+import { isOnMyServices, isOnMyServicesEntries } from "./filter.ts";
+import { FREE_TV_ID } from "./free-tv.ts";
 
-export { isOnMyServices };
+export { isOnMyServices, isOnMyServicesEntries };
 export { PREFS_KEY };
 
 const LEGACY_SERVICES = "sf:services:v1";
@@ -40,13 +41,34 @@ function writeRaw(key: string, value: unknown) {
   }
 }
 
+const FREE_TV_MIGRATED_KEY = "sf:free-tv-migrated:v1";
+
 function loadPrefs(): Prefs {
   const current = readRaw(PREFS_KEY);
-  if (current && typeof current === "object") return migrateLegacy(current);
-  // Migration aus V1-Schlüsseln
-  const legacyServices = readRaw(LEGACY_SERVICES);
-  const legacyWatchlist = readRaw(LEGACY_WATCHLIST);
-  return migrateLegacy({ services: legacyServices, watchlist: legacyWatchlist });
+  let prefs: Prefs;
+  if (current && typeof current === "object") prefs = migrateLegacy(current);
+  else {
+    // Migration aus V1-Schlüsseln
+    const legacyServices = readRaw(LEGACY_SERVICES);
+    const legacyWatchlist = readRaw(LEGACY_WATCHLIST);
+    if (legacyServices !== null || legacyWatchlist !== null) {
+      prefs = migrateLegacy({ services: legacyServices, watchlist: legacyWatchlist });
+    } else {
+      // Neuanlage: Free TV standardmäßig dabei.
+      return emptyPrefs();
+    }
+  }
+  // Einmalig: bestehende Haushalte bekommen Free TV dazu (danach frei entfernbar).
+  try {
+    if (typeof window !== "undefined" && !window.localStorage.getItem(FREE_TV_MIGRATED_KEY)) {
+      if (!prefs.services.includes(FREE_TV_ID)) prefs.services = [...prefs.services, FREE_TV_ID];
+      window.localStorage.setItem(FREE_TV_MIGRATED_KEY, "1");
+      window.localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
+    }
+  } catch {
+    // ignorieren
+  }
+  return prefs;
 }
 
 export function loadSnapshots(): WatchSnapshot[] {

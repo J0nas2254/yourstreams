@@ -1,5 +1,6 @@
 import type { Prefs, ScoredTitle, Title } from "./types.ts";
-import { isOnMyServices } from "./filter.ts";
+import { isOnMyServices, isOnMyServicesEntries } from "./filter.ts";
+import { FREE_TV_ID } from "./free-tv.ts";
 
 // Lokale, nachvollziehbare Empfehlungslogik – kein KI-Dienst, kein Konto.
 // Verwendet nur löschbare TypeScript-Syntax, damit node --test sie direkt prüfen kann.
@@ -7,7 +8,8 @@ import { isOnMyServices } from "./filter.ts";
 export const PREFS_KEY = "sf:prefs:v2";
 
 export function emptyPrefs(): Prefs {
-  return { services: [], watchlist: [], seen: [], seenEpisodes: {}, interests: {}, notInterested: [] };
+  // Free TV ist standardmäßig dabei (ein Punkt statt vieler Free-Einzeldienste).
+  return { services: [FREE_TV_ID], watchlist: [], seen: [], seenEpisodes: {}, interests: {}, notInterested: [] };
 }
 
 export function migrateLegacy(raw: unknown): Prefs {
@@ -103,7 +105,7 @@ export function scoreTitles(
     if (seen.has(t.id) || not.has(t.id)) continue;
     let score = 0;
     const reasons: string[] = [];
-    const onMine = isOnMyServices(t.availability.map((a) => a.provider_id), prefs.services);
+    const onMine = isOnMyServicesEntries(t.availability, prefs.services);
 
     let genreScore = 0;
     const matched: string[] = [];
@@ -193,12 +195,16 @@ const INCLUDED = new Set(["flatrate", "free", "ads"]);
 
 export function applySearchFilters(titles: Title[], f: SearchFilters): Title[] {
   return titles.filter((t) => {
-    if (f.onlyMine && !isOnMyServices(t.availability.map((a) => a.provider_id), f.services)) return false;
+    if (f.onlyMine && !isOnMyServicesEntries(t.availability, f.services)) return false;
     if (f.mediaType && f.mediaType !== "all" && t.mediaType !== f.mediaType) return false;
     if (f.genre && !(t.genres ?? []).includes(f.genre)) return false;
     if (typeof f.yearFrom === "number" && (t.year === null || t.year < f.yearFrom)) return false;
     if (typeof f.yearTo === "number" && (t.year === null || t.year > f.yearTo)) return false;
-    if (typeof f.providerId === "number" && !t.availability.some((a) => a.provider_id === f.providerId)) return false;
+    if (typeof f.providerId === "number") {
+      if (f.providerId === FREE_TV_ID) {
+        if (!t.availability.some((a) => a.kind === "free" || a.kind === "ads")) return false;
+      } else if (!t.availability.some((a) => a.provider_id === f.providerId)) return false;
+    }
     if (f.includedOnly && !t.availability.some((a) => INCLUDED.has(a.kind))) return false;
     if (typeof f.minImdb === "number") {
       const r = f.imdbById?.get(t.id);

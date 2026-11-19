@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Provider } from "@/lib/types";
 import { ApiError, apiProviders } from "@/lib/api.ts";
 import { usePrefs } from "@/lib/store";
+import { FREE_TV_ID, FREE_TV_LABEL, filterFreeProviders } from "@/lib/free-tv";
 import SetupNotice from "@/components/setup-notice";
 
 export default function DienstePage() {
@@ -27,12 +28,16 @@ export default function DienstePage() {
       });
   }, []);
 
+  const paidProviders = useMemo(() => filterFreeProviders(providers), [providers]);
+  const freeActive = services.includes(FREE_TV_ID);
+
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-black text-white">Meine Dienste</h1>
       <p className="max-w-2xl text-sm text-slate-400">
-        Wähle die Streaming-Abos deines Haushalts manuell aus. Echte Anbieterliste von TMDb für Deutschland (DE).
-        Keine Anmeldung, keine Passwörter – die Auswahl bleibt lokal auf diesem Gerät.
+        Wähle die Streaming-Abos deines Haushalts manuell aus. Kostenlose und
+        werbefinanzierte Angebote sind in einem Punkt zusammengefasst: {FREE_TV_LABEL}.
+        Die Auswahl bleibt lokal auf diesem Gerät.
       </p>
       {status === "loading" && <p className="text-slate-300">Lädt …</p>}
       {status === "setup" && (
@@ -52,7 +57,22 @@ export default function DienstePage() {
       )}
       {status === "ok" && (
         <ul className="grid gap-2 sm:grid-cols-2" aria-label="Streaminganbieter">
-          {providers.map((p) => {
+          <li>
+            <button
+              type="button"
+              onClick={() => toggleService(FREE_TV_ID)}
+              aria-pressed={freeActive}
+              className={`flex w-full items-center justify-between gap-3 rounded-2xl border p-4 text-left font-semibold ${
+                freeActive ? "border-emerald-400 bg-emerald-400/10 text-white" : "border-white/10 bg-ink-800 text-slate-200"
+              }`}
+            >
+              <span>{FREE_TV_LABEL} <span className="block text-xs font-normal text-slate-400">Kostenlos / Werbung – immer dabei, einzeln ausgeblendet</span></span>
+              <span aria-hidden className={`rounded-full px-3 py-1 text-xs font-bold ${freeActive ? "bg-emerald-400 text-slate-900" : "bg-white/10 text-slate-300"}`}>
+                {freeActive ? "Ausgewählt ✓" : "Auswählen"}
+              </span>
+            </button>
+          </li>
+          {paidProviders.map((p) => {
             const active = services.includes(p.provider_id);
             return (
               <li key={p.provider_id}>

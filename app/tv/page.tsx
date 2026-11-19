@@ -4,13 +4,14 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Browser } from "@capacitor/browser";
 import type { Title } from "@/lib/types";
 import { ApiError, apiDiscover, apiImdbRating, apiProviders, apiSeasonEpisodes, apiTitle, apiTrending, isCapacitorAndroid } from "@/lib/api.ts";
-import { isOnMyServices, usePrefs } from "@/lib/store";
+import { isOnMyServicesEntries, usePrefs } from "@/lib/store";
 import { nextUnseenEpisode, scoreTitles } from "@/lib/prefs.ts";
 import EpisodeTracker, { useSeriesEpisodes } from "@/components/episode-tracker";
 import { backdropUrl, posterUrl } from "@/lib/images";
 import { useTvFocus } from "@/lib/tv-focus";
 import ImdbBadge from "@/components/imdb-badge";
 import TitleActions from "@/components/title-actions";
+import { FREE_TV_ID, FREE_TV_LABEL, filterFreeProviders } from "@/lib/free-tv";
 import "./tv.css";
 
 type Tab = "suchen" | "dienste" | "liste";
@@ -216,7 +217,7 @@ export default function TvPage() {
   );
 
   const onMine = useCallback(
-    (t: Title) => isOnMyServices(t.availability.map((a) => a.provider_id), services),
+    (t: Title) => isOnMyServicesEntries(t.availability, services),
     [services]
   );
 
@@ -438,7 +439,19 @@ export default function TvPage() {
             Wähle mit OK deine Haushalts-Abos. Echte Anbieterliste von TMDb (DE). Alles bleibt auf diesem Gerät.
           </p>
           <ul className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-            {providers.map((p) => {
+            <li>
+              <button
+                data-tv
+                type="button"
+                onClick={() => toggleService(FREE_TV_ID)}
+                aria-pressed={services.includes(FREE_TV_ID)}
+                className="tv-focusable flex w-full items-center justify-between rounded-3xl p-6 text-2xl font-bold bg-white text-slate-900"
+              >
+                <span>{FREE_TV_LABEL}</span>
+                <span aria-hidden>{services.includes(FREE_TV_ID) ? "✓" : "○"}</span>
+              </button>
+            </li>
+            {filterFreeProviders(providers).map((p) => {
               const active = services.includes(p.provider_id);
               return (
                 <li key={p.provider_id}>

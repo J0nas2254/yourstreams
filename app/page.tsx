@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import type { Title } from "@/lib/types";
 import { ApiError, apiDiscover, apiSeasonEpisodes, apiTitle, apiTrending } from "@/lib/api.ts";
 import { nextUnseenEpisode } from "@/lib/prefs.ts";
-import { isOnMyServices, usePrefs } from "@/lib/store";
+import { isOnMyServicesEntries, usePrefs } from "@/lib/store";
 import { scoreTitles } from "@/lib/prefs.ts";
 import Hero from "@/components/hero";
 import SetupNotice from "@/components/setup-notice";
@@ -133,12 +133,12 @@ export default function HomePage() {
 
   const seenSet = useMemo(() => new Set(seen), [seen]);
   const onMineIds = useMemo(
-    () => new Set(pool.filter((t) => isOnMyServices(t.availability.map((a) => a.provider_id), prefs.services)).map((t) => t.id)),
+    () => new Set(pool.filter((t) => isOnMyServicesEntries(t.availability, prefs.services)).map((t) => t.id)),
     [pool, prefs.services]
   );
 
   const householdOnlyMine = useMemo(
-    () => household.filter((t) => isOnMyServices(t.availability.map((a) => a.provider_id), prefs.services)),
+    () => household.filter((t) => isOnMyServicesEntries(t.availability, prefs.services)),
     [household, prefs.services]
   );
 
