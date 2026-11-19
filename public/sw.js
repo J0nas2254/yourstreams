@@ -1,4 +1,4 @@
-const CACHE = "streamfinder-v1";
+const CACHE = "streamfinder-v2";
 const APP_SHELL = ["/", "/suche", "/dienste", "/merkliste", "/einstellungen", "/ueber", "/manifest.webmanifest", "/icon.svg"];
 
 self.addEventListener("install", (event) => {

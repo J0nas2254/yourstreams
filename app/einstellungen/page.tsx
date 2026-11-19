@@ -49,20 +49,24 @@ export default function EinstellungenPage() {
       </section>
 
       <section className="rounded-2xl border border-white/10 bg-ink-800 p-5" aria-label="Datenquelle und API-Schlüssel">
-        <h2 className="font-bold text-white">Datenquelle & API-Schlüssel</h2>
+        <h2 className="font-bold text-white">Datenquelle und API-Schlüssel</h2>
         {status.checked ? (
           <ul className="mt-2 space-y-1 text-sm text-slate-300">
-            <li>TMDb: {status.configured ? "✓ konfiguriert" : "✕ fehlt (TMDB_API_KEY)"}</li>
-            <li>OMDb (IMDb-Bewertungen): {status.omdb ? "✓ konfiguriert" : "✕ fehlt (OMDB_API_KEY, optional)"}</li>
+            <li>TMDb: {status.configured ? "✓ konfiguriert" : "✕ fehlt"}</li>
+            <li>OMDb (IMDb-Bewertungen): {status.omdb ? "✓ konfiguriert" : "✕ fehlt (optional)"}</li>
           </ul>
         ) : (
           <p className="mt-2 text-sm text-slate-400">Status wird geprüft …</p>
         )}
-        <div className="mt-4 space-y-3 rounded-xl border border-white/10 bg-ink-950 p-4">
-          <h3 className="text-sm font-bold text-white">Schlüssel auf diesem Gerät eingeben (privat)</h3>
+        <div className="mt-4 space-y-3 rounded-xl border-2 border-gold-400/60 bg-ink-950 p-4">
+          <h3 className="text-base font-black text-white">Hier Schlüssel eingeben, ganz einfach:</h3>
+          <ol className="list-decimal space-y-1 pl-5 text-sm text-slate-200">
+            <li>Schlüssel bei TMDb / OMDb holen (einmalig, gratis).</li>
+            <li>Unten einfügen und auf Speichern tippen.</li>
+            <li>Fertig, die App lädt danach echte Filme und Serien.</li>
+          </ol>
           <p className="text-xs text-slate-400">
-            Nur auf diesem Gerät in <code className="rounded bg-ink-800 px-1">localStorage</code> gespeichert –
-            nie in Git, nie im Bundle. Auf geteilten Geräten nicht verwenden.
+            Bleibt nur auf diesem Gerät gespeichert. Nichts wird hochgeladen.
           </p>
           <label className="block text-sm text-slate-300">
             TMDb-Schlüssel (Pflicht)
@@ -71,7 +75,7 @@ export default function EinstellungenPage() {
               autoComplete="off"
               value={tmdbInput}
               onChange={(e) => setTmdbInput(e.target.value)}
-              placeholder="TMDB_API_KEY einfügen"
+              placeholder="TMDb-Schlüssel hier einfügen"
               data-tv="tmdb-key"
               className="mt-1 w-full rounded-lg border border-white/10 bg-ink-800 px-3 py-2 text-sm text-white placeholder:text-slate-500"
             />
@@ -83,7 +87,7 @@ export default function EinstellungenPage() {
               autoComplete="off"
               value={omdbInput}
               onChange={(e) => setOmdbInput(e.target.value)}
-              placeholder="OMDB_API_KEY einfügen (optional)"
+              placeholder="OMDb-Schlüssel hier einfügen (optional)"
               data-tv="omdb-key"
               className="mt-1 w-full rounded-lg border border-white/10 bg-ink-800 px-3 py-2 text-sm text-white placeholder:text-slate-500"
             />
@@ -119,15 +123,7 @@ export default function EinstellungenPage() {
               </button>
             )}
           </div>
-          {keysSaved && <p className="text-sm text-emerald-300">Gespeichert – nur auf diesem Gerät.</p>}
-        </div>
-        <div className="mt-3 space-y-2 text-sm text-slate-300">
-          <p><strong className="text-white">Alternative Einrichtung (Server):</strong></p>
-          <ol className="list-decimal space-y-1 pl-5">
-            <li><code className="rounded bg-ink-950 px-1">.env.example</code> nach <code className="rounded bg-ink-950 px-1">.env.local</code> kopieren.</li>
-            <li>TMDb-Schlüssel eintragen (<code className="rounded bg-ink-950 px-1">TMDB_API_KEY</code>). Optional <code className="rounded bg-ink-950 px-1">OMDB_API_KEY</code> für IMDb-Bewertungen.</li>
-            <li>Server neu starten. Schlüssel bleiben serverseitig und stehen in <code className="rounded bg-ink-950 px-1">.gitignore</code>.</li>
-          </ol>
+          {keysSaved && <p className="text-sm text-emerald-300">Gespeichert, nur auf diesem Gerät.</p>}
         </div>
       </section>
 
@@ -145,7 +141,7 @@ export default function EinstellungenPage() {
           }}
           className="mt-3 rounded-full bg-white px-5 py-2.5 text-sm font-extrabold text-slate-900"
         >
-          Interessen & Verlauf zurücksetzen
+          Interessen und Verlauf zurücksetzen
         </button>
         {resetDone && <p className="mt-2 text-sm text-emerald-300">Zurückgesetzt.</p>}
       </section>
@@ -153,9 +149,8 @@ export default function EinstellungenPage() {
       <section className="rounded-2xl border border-white/10 bg-ink-800 p-5" aria-label="Datenschutz">
         <h2 className="font-bold text-white">Datenschutz</h2>
         <p className="mt-1 text-sm text-slate-400">
-          Gespeichert werden nur Dienste, Merkliste, gesehene Titel und Empfehlungsinteressen – lokal auf diesem Gerät.
-          Keine Konten, keine Passwörter, kein Tracking. Suchanfragen für aktuelle Verfügbarkeiten gehen an die
-          eingestellte Datenquelle (TMDb/OMDb).
+          Gespeichert werden nur Dienste, Merkliste, gesehene Titel und Empfehlungsinteressen, lokal auf diesem Gerät.
+          Keine Konten, kein Tracking.
         </p>
       </section>
     </div>
