@@ -97,6 +97,30 @@ cd android
 > Ein Android-APK läuft nur auf kompatiblen **Fire-OS-Geräten** und **nicht auf Vega OS**. Es gab hier **keinen Test
 > auf einem echten Fire-TV-Gerät oder Emulator** – das TV-Layout wurde nur mit Tastatur im Desktop-Browser geprüft.
 
+## Hosting (Web-Backend für Web und APK)
+
+Die App läuft als echter Next.js-Server (OpenNext-Adapter, Cloudflare Workers) auf Freebuff Sites – inklusive aller
+`/api`-Routen, damit die APK echte TMDb-Daten bekommt:
+
+- Produktion: https://streamfinder-jrwh3e.freebuff.site
+- Vorschau: https://streamfinder-jrwh3e-preview.freebuff.site
+
+**Server-Variablen** (Projekt → Einstellungen → Secrets, jeweils für Produktion und Vorschau):
+
+- `TMDB_API_KEY` – Pflicht, ohne ihn antworten die API-Routen mit `503` und Einrichtungshinweis.
+- `OMDB_API_KEY` – optional, nur für die IMDb-Bewertungen.
+
+Nach dem Eintragen einmal neu deployen, damit der Wert im laufenden Worker ankommt. Schlüssel stehen nie im
+Browser-Bundle, nie in der APK und nie in Git.
+
+`NEXT_PUBLIC_API_BASE` gehört **nicht** in die Secrets: Die Variable wird beim APK-Build eingebacken und zeigt auf
+das Backend.
+
+```bash
+NEXT_PUBLIC_API_BASE=https://streamfinder-jrwh3e.freebuff.site npm run build:android
+npx cap sync android
+```
+
 ## Tests
 
 `npm test` (Node-Testrunner, keine Zusatzabhängigkeit): Provider-Filter (`isOnMyServices`), Suchfilter

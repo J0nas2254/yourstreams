@@ -298,8 +298,8 @@ export default function TvPage() {
           <h2 className="text-2xl font-bold">API-Schlüssel fehlt</h2>
           <p className="mt-2 text-xl text-slate-300">
             Ohne TMDb-Schlüssel zeigt die App keine Titel – es werden keine Beispieldaten angezeigt. Lege
-            TMDB_API_KEY in .env.local an (Anleitung in der README) oder konfiguriere für die APK ein
-            HTTPS-Backend (NEXT_PUBLIC_API_BASE).
+            TMDB_API_KEY als Server-Variable an (lokal .env.local, gehostet: Einstellungen → Secrets; Anleitung in
+            der README) oder konfiguriere für die APK ein HTTPS-Backend (NEXT_PUBLIC_API_BASE).
           </p>
         </div>
       </div>

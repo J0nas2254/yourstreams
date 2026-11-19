@@ -44,7 +44,7 @@ export default function EinstellungenPage() {
         <div className="mt-3 space-y-2 text-sm text-slate-300">
           <p><strong className="text-white">Einrichtung (privater Haushalt):</strong></p>
           <ol className="list-decimal space-y-1 pl-5">
-            <li><code className="rounded bg-ink-950 px-1">.env.example</code> nach <code className="rounded bg-ink-950 px-1">.env.local</code> kopieren.</li>
+            <li><code className="rounded bg-ink-950 px-1">.env.example</code> nach <code className="rounded bg-ink-950 px-1">.env.local</code> kopieren – oder beim Hosting <code className="rounded bg-ink-950 px-1">TMDB_API_KEY</code> unter Einstellungen → Secrets eintragen.</li>
             <li>TMDb-Schlüssel eintragen (<code className="rounded bg-ink-950 px-1">TMDB_API_KEY</code>, optional Lesetoken). Optional <code className="rounded bg-ink-950 px-1">OMDB_API_KEY</code> für IMDb-Bewertungen.</li>
             <li>Server neu starten. Schlüssel bleiben serverseitig und stehen in <code className="rounded bg-ink-950 px-1">.gitignore</code>.</li>
           </ol>

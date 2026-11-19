@@ -13,3 +13,8 @@ android/app/release/
 
 # TypeScript-Build-Info
 *.tsbuildinfo
+/freebuff-sites-build/
+/.open-next/
+/.wrangler/
+/freebuff.wrangler.jsonc
+/freebuff.open-next.config.ts

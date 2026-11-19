@@ -5,7 +5,7 @@ import { hasTmdbKey, tmdbDiscoverByProviders } from "@/lib/tmdb";
 export async function GET(req: Request) {
   if (!hasTmdbKey()) {
     return NextResponse.json(
-      { configured: false, error: "TMDb ist nicht konfiguriert. Lege TMDB_API_KEY in .env.local an (siehe README)." },
+      { configured: false, error: "TMDb ist nicht konfiguriert. Lege TMDB_API_KEY als Server-Variable an (lokal .env.local, gehostet: Einstellungen → Secrets)." },
       { status: 503 }
     );
   }

@@ -2,15 +2,16 @@ import { NextResponse } from "next/server";
 import { hasTmdbKey, tmdbSeasonEpisodes } from "@/lib/tmdb";
 
 // Echte Episodendaten einer Staffel (TMDb). Schlüssel bleibt serverseitig.
-export async function GET(req: Request, { params }: { params: { tmdbId: string; n: string } }) {
+export async function GET(req: Request, { params }: { params: Promise<{ tmdbId: string; n: string }> }) {
   if (!hasTmdbKey()) {
     return NextResponse.json(
       { configured: false, error: "TMDb ist nicht konfiguriert (TMDB_API_KEY fehlt)." },
       { status: 503 }
     );
   }
-  const tmdbId = Number(params.tmdbId);
-  const season = Number(params.n);
+  const p = await params;
+  const tmdbId = Number(p.tmdbId);
+  const season = Number(p.n);
   if (!Number.isFinite(tmdbId) || tmdbId <= 0 || !Number.isFinite(season) || season < 0) {
     return NextResponse.json({ configured: true, error: "Ungültige Staffelanfrage." }, { status: 400 });
   }

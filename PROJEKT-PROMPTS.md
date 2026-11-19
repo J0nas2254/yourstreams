@@ -231,3 +231,46 @@ Vor Abschluss jeder Änderung prüfen:
       Gesehen-Filter (Alle/Nur gesehene/Nur ungesehene) vorhanden.
 - [ ] Nicht prüfbar ohne `TMDB_API_KEY`: Episoden-/Staffel-Markierungen,
       „Weiterschauen“ und Fire-TV-Fokus mit echten Titeln.
+
+## Prompt 7: Hosting als echtes Backend (Stand 19.11.2026)
+
+> „Die Seite soll auch als echtes Backend laufen, damit die Android-APK echte
+> Daten bekommt – richte das Hosting samt Umgebungsvariablen ein und sag mir,
+> wo ich TMDB_API_KEY eintragen muss.“
+
+### Ergebnis
+
+- **Hosting:** Freebuff Sites (Cloudflare Workers, OpenNext-Adapter), Projekt
+  „StreamFinder“.
+  - Produktion: https://streamfinder-jrwh3e.freebuff.site (veröffentlicht)
+  - Vorschau: https://streamfinder-jrwh3e-preview.freebuff.site
+- **Next.js 14.2.5 → 16.4.6**, weil der Adapter nur Next 15.5+/16 unterstützt
+  (React bleibt bei 18.3.1). Angepasst: `app/api/title/[id]` und
+  `app/api/tv/[tmdbId]/season/[n]` lesen `params` jetzt als Promise (Next 15+).
+- **`open-next.config.ts`** neu: R2-Incremental-Cache mit Regional-Cache,
+  DO-Queue, Sharded-Tag-Cache – passend zu den von Sites bereitgestellten
+  Bindings. `freebuff.wrangler.jsonc`, `freebuff.open-next.config.ts`,
+  `freebuff-sites-build/` werden vom Hosting generiert und sind ignoriert.
+- **Server-Variablen:** `TMDB_API_KEY` (Pflicht) und optional `OMDB_API_KEY`
+  werden im Sites-Panel unter Einstellungen → Secrets eingetragen – pro
+  Umgebung, Werte nie im Repo oder im Chat. `NEXT_PUBLIC_API_BASE` gehört
+  nicht dorthin, sondern in den APK-Build.
+- **APK-Anbindung:** `NEXT_PUBLIC_API_BASE=https://streamfinder-jrwh3e.freebuff.site
+  npm run build:android` + `npx cap sync android`.
+- **Hinweistexte** (API-Routen, Startseite, TV-Ansicht, Einstellungen) nennen
+  jetzt beide Wege: `.env.local` lokal, Secrets beim Hosting.
+
+### Geprüfte Kontrolle
+
+- [x] `npm test` → 11/11 bestanden (nach dem Next-Upgrade).
+- [x] `npx tsc --noEmit` → keine Fehler.
+- [x] `npm run build` → Server-Build mit allen `/api`-Routen.
+- [x] `wrangler dev` (workerd, lokale Bindings): Seiten `/`, `/liste`, `/tv`,
+      `/suche` → 200; `/api/status` → `configured: false`;
+      `/api/trending`, `/api/title/...` → 503 mit Setup-Hinweis.
+- [x] Produktion: `/` und `/suche` → 200, CSS/JS mit korrektem Content-Type,
+      `/api/trending` → 503-Setup-Hinweis (kein Demo-Feed).
+- [x] `npm run build:android` mit gesetztem `NEXT_PUBLIC_API_BASE` → Export
+      nach `out-next/`, Backend-URL im Client-Bundle.
+- [ ] Nicht prüfbar ohne Schlüssel: echte TMDb-Daten, Episoden, IMDb-Werte.
+      Erst nach Eintragen von `TMDB_API_KEY` in den Secrets prüfbar.

@@ -196,7 +196,7 @@ export default function HomePage() {
         <div className="py-6">
           <SetupNotice
             title="API-Schlüssel fehlt"
-            message="Ohne TMDb-Schlüssel zeigt die App keine Titel – es werden keine Demo-Daten angezeigt. Lege TMDB_API_KEY in .env.local an (Anleitung in der README). Deine lokal gespeicherte Liste bleibt trotzdem verfügbar."
+            message="Ohne TMDb-Schlüssel zeigt die App keine Titel – es werden keine Demo-Daten angezeigt. Lege TMDB_API_KEY als Server-Variable an (lokal .env.local, gehostet: Einstellungen → Secrets; Anleitung in der README). Deine lokal gespeicherte Liste bleibt trotzdem verfügbar."
           />
         </div>
       )}
