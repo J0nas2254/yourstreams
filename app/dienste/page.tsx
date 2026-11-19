@@ -35,8 +35,9 @@ export default function DienstePage() {
     <div className="space-y-4">
       <h1 className="text-2xl font-black text-white">Meine Dienste</h1>
       <p className="max-w-2xl text-sm text-slate-400">
-        Wähle die Streaming-Abos deines Haushalts manuell aus. Kostenlose und
-        werbefinanzierte Angebote sind in einem Punkt zusammengefasst: {FREE_TV_LABEL}.
+        Wähle die Streaming-Abos deines Haushalts manuell aus. Rein kostenlose
+        Angebote sind in einem Punkt zusammengefasst: {FREE_TV_LABEL}.
+        Joyn und RTL+ bleiben einzeln sichtbar, weil sie zusätzlich Bezahl-Abos haben.
         Die Auswahl bleibt lokal auf diesem Gerät.
       </p>
       {status === "loading" && <p className="text-slate-300">Lädt …</p>}
@@ -66,7 +67,7 @@ export default function DienstePage() {
                 freeActive ? "border-emerald-400 bg-emerald-400/10 text-white" : "border-white/10 bg-ink-800 text-slate-200"
               }`}
             >
-              <span>{FREE_TV_LABEL} <span className="block text-xs font-normal text-slate-400">Kostenlos / Werbung – immer dabei, einzeln ausgeblendet</span></span>
+              <span>{FREE_TV_LABEL} <span className="block text-xs font-normal text-slate-400">Rein kostenlose Anbieter – Joyn / RTL+ bleiben einzeln wählbar</span></span>
               <span aria-hidden className={`rounded-full px-3 py-1 text-xs font-bold ${freeActive ? "bg-emerald-400 text-slate-900" : "bg-white/10 text-slate-300"}`}>
                 {freeActive ? "Ausgewählt ✓" : "Auswählen"}
               </span>

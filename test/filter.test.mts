@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { isOnMyServices } from "../lib/filter.ts";
+import { filterFreeProviders, isKnownFreeProvider } from "../lib/free-tv.ts";
 import { applySearchFilters, countSeenEpisodes, genreWeights, migrateLegacy, nextUnseenEpisode, scoreTitles } from "../lib/prefs.ts";
 import type { Title } from "../lib/types.ts";
 
@@ -142,4 +143,26 @@ test("migrateLegacy: überträgt alte Schlüssel und filtert Müll", () => {
   assert.equal(p.watchlist.length, 1);
   assert.deepEqual(p.seen, []);
   assert.deepEqual(p.interests, { a: "up" });
+});
+
+test("free-tv: genaue Liste statt Namensrate, Joyn/RTL+ bleiben sichtbar", () => {
+  // Reine Gratis-Anbieter per exakter ID / exaktem Namen
+  assert.equal(isKnownFreeProvider("Pluto TV", 300), true);
+  assert.equal(isKnownFreeProvider("ARD Mediathek", 99991), true);
+  assert.equal(isKnownFreeProvider("ZDF", 99992), true);
+  // Bezahl-Varianten bleiben sichtbar
+  assert.equal(isKnownFreeProvider("Joyn", 304), false);
+  assert.equal(isKnownFreeProvider("Joyn Plus", 421), false);
+  assert.equal(isKnownFreeProvider("RTL+", 2750), false);
+  // Kein Substring-Raten: fremde Namen mit ähnlichen Teilen bleiben sichtbar
+  assert.equal(isKnownFreeProvider("My Joyn Clone", 99999), false);
+  assert.equal(isKnownFreeProvider("RTL+ Fan-App", 99999), false);
+  assert.equal(isKnownFreeProvider("Sat.1", 99999), false);
+  const list = [
+    { provider_id: 300, provider_name: "Pluto TV" },
+    { provider_id: 304, provider_name: "Joyn" },
+    { provider_id: 2750, provider_name: "RTL+" },
+    { provider_id: 8, provider_name: "Netflix" }
+  ];
+  assert.deepEqual(filterFreeProviders(list).map((p) => p.provider_id), [304, 2750, 8]);
 });
