@@ -42,7 +42,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <Link className="rounded px-2 py-1.5 hover:bg-white/10" href="/suche">Suche</Link>
               <Link className="rounded px-2 py-1.5 hover:bg-white/10" href="/liste">Liste</Link>
               <Link className="rounded px-2 py-1.5 hover:bg-white/10" href="/dienste">Dienste</Link>
-              <Link className="rounded px-2 py-1.5 hover:bg-white/10" href="/einstellungen">Mehr</Link>
+              <Link className="rounded px-2 py-1.5 hover:bg-white/10" href="/einstellungen">Einstellungen</Link>
               <Link className="rounded px-2 py-1.5 hover:bg-white/10" href="/tv">TV</Link>
             </nav>
           </div>
