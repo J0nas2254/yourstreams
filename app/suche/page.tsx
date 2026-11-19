@@ -202,8 +202,8 @@ function SucheInner() {
   }
 
   const inputCls =
-    "rounded-xl border border-white/15 bg-ink-950 px-3 py-2 text-sm text-white placeholder:text-slate-500";
-  const labelCls = "flex flex-col gap-1 text-xs font-bold text-slate-300";
+    "w-full min-w-0 max-w-full rounded-xl border border-white/15 bg-ink-950 px-2.5 py-2 text-sm text-white placeholder:text-slate-500 sm:px-3";
+  const labelCls = "flex min-w-0 flex-col gap-1 text-xs font-bold text-slate-300";
 
   return (
     <div className="space-y-4">
@@ -243,7 +243,7 @@ function SucheInner() {
         Filter“ tippen – die App schlägt passende Titel vor.
       </p>
 
-      <fieldset className="grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-ink-800/60 p-3 sm:grid-cols-4">
+      <fieldset className="grid grid-cols-2 gap-2 overflow-hidden rounded-2xl border border-white/10 bg-ink-800/60 p-3 sm:grid-cols-4">
         <legend className="px-1 text-xs font-bold text-slate-400">Filter</legend>
         <label className={labelCls}>
           Art
@@ -346,7 +346,7 @@ function SucheInner() {
       )}
 
       {status === "ok" && filtered.length > 0 && (
-        <ul className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6" aria-label="Suchergebnisse">
+        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-6" aria-label="Suchergebnisse">
           {filtered.map((t) => (
             <li key={t.id}>
               <PosterCard title={t} onMyServices={onMineIds.has(t.id)} seen={prefs.seen.includes(t.id)} />

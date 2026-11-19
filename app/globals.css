@@ -8,6 +8,9 @@
 
 html {
   scroll-behavior: smooth;
+  /* Kein seitliches Überlaufen der ganzen Seite auf dem Handy.
+     "clip" statt "hidden", damit position: sticky weiter funktioniert. */
+  overflow-x: clip;
 }
 
 body {
@@ -22,6 +25,13 @@ input:focus-visible,
 select:focus-visible {
   outline: 3px solid #7dd3fc;
   outline-offset: 2px;
+}
+
+/* Optische Maskierung der Schlüsselfelder – bewusst KEIN type="password",
+   damit Passwort-Manager die Felder nicht als Zugangsdaten behandeln. */
+.key-mask {
+  -webkit-text-security: disc;
+  text-security: disc;
 }
 
 .no-scrollbar::-webkit-scrollbar {

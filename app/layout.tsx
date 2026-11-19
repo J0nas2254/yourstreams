@@ -33,17 +33,20 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           Zum Inhalt springen
         </a>
         <header className="sticky top-0 z-30 border-b border-white/10 bg-ink-950/85 backdrop-blur">
-          <div className="mx-auto flex max-w-6xl items-center justify-between gap-2 px-4 py-3">
+          <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-2 gap-y-1 px-4 py-2.5 sm:py-3">
             <Link href="/" className="text-lg font-black tracking-tight text-white">
               Stream<span className="text-gold-400">Finder</span>
             </Link>
-            <nav aria-label="Hauptnavigation" className="flex flex-wrap items-center gap-1 text-sm font-semibold text-slate-200">
-              <Link className="rounded px-2 py-1.5 hover:bg-white/10" href="/">Start</Link>
-              <Link className="rounded px-2 py-1.5 hover:bg-white/10" href="/suche">Suche</Link>
-              <Link className="rounded px-2 py-1.5 hover:bg-white/10" href="/liste">Liste</Link>
-              <Link className="rounded px-2 py-1.5 hover:bg-white/10" href="/dienste">Dienste</Link>
-              <Link className="rounded px-2 py-1.5 hover:bg-white/10" href="/einstellungen">Einstellungen</Link>
-              <Link className="rounded px-2 py-1.5 hover:bg-white/10" href="/tv">TV</Link>
+            <nav
+              aria-label="Hauptnavigation"
+              className="no-scrollbar -mx-1 flex w-full items-center gap-0.5 overflow-x-auto whitespace-nowrap text-[13px] font-semibold text-slate-200 sm:mx-0 sm:w-auto sm:flex-wrap sm:gap-1 sm:overflow-visible sm:text-sm"
+            >
+              <Link className="shrink-0 rounded px-2 py-1.5 hover:bg-white/10" href="/">Start</Link>
+              <Link className="shrink-0 rounded px-2 py-1.5 hover:bg-white/10" href="/suche">Suche</Link>
+              <Link className="shrink-0 rounded px-2 py-1.5 hover:bg-white/10" href="/liste">Liste</Link>
+              <Link className="shrink-0 rounded px-2 py-1.5 hover:bg-white/10" href="/dienste">Dienste</Link>
+              <Link className="shrink-0 rounded px-2 py-1.5 hover:bg-white/10" href="/einstellungen">Einstellungen</Link>
+              <Link className="shrink-0 rounded px-2 py-1.5 hover:bg-white/10" href="/tv">TV</Link>
             </nav>
           </div>
         </header>

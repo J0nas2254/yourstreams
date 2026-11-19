@@ -390,7 +390,7 @@ export default function TvPage() {
         </section>
       )}
 
-      <nav aria-label="TV-Bereiche" className="mb-2 flex gap-4">
+      <nav aria-label="TV-Bereiche" className="mb-2 flex flex-wrap gap-3">
         {TABS.map((t) => (
           <button
             key={t.id}
@@ -415,7 +415,7 @@ export default function TvPage() {
         <>
           <form
             role="search"
-            className="mt-4 flex gap-4"
+            className="mt-4 flex flex-wrap gap-3"
             onSubmit={(e) => {
               e.preventDefault();
               runSearch(q);
@@ -428,7 +428,7 @@ export default function TvPage() {
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Film oder Serie suchen … (Tastatur öffnet sich automatisch)"
-              className="tv-focusable w-full max-w-2xl rounded-2xl bg-white px-6 py-4 text-2xl text-slate-900"
+              className="tv-focusable w-full min-w-0 max-w-2xl flex-1 rounded-2xl bg-white px-4 py-4 text-xl text-slate-900 sm:px-6 sm:text-2xl"
             />
             <button data-tv type="submit" className="tv-focusable rounded-2xl bg-white px-8 py-4 text-2xl font-extrabold text-slate-900">
               Suchen

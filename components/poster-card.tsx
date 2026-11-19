@@ -27,7 +27,7 @@ export default function PosterCard({
 }) {
   const src = posterUrl(title.posterPath, "w342");
   return (
-    <article className="group w-36 shrink-0 snap-start sm:w-44">
+    <article className="group w-36 max-w-full shrink-0 snap-start sm:w-44">
       <Link
         href={`/titel?id=${encodeURIComponent(title.id)}`}
         aria-label={`${title.title} – Details ansehen`}
