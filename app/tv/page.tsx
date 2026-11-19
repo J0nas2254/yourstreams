@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Browser } from "@capacitor/browser";
 import type { Title } from "@/lib/types";
 import { ApiError, apiDiscover, apiImdbRating, apiProviders, apiSeasonEpisodes, apiTitle, apiTrending, isCapacitorAndroid } from "@/lib/api.ts";
@@ -278,11 +278,39 @@ export default function TvPage() {
   }
 
   function Row({ heading, titles, reasons }: { heading: string; titles: Title[]; reasons?: Map<string, string> }) {
+    const rowRef = useRef<HTMLDivElement>(null);
     if (titles.length === 0) return null;
+    function scrollRow(dir: 1 | -1) {
+      const el = rowRef.current;
+      if (!el) return;
+      el.scrollBy({ left: dir * Math.max(el.clientWidth * 0.8, 320), behavior: "smooth" });
+    }
     return (
       <section aria-label={heading} className="mt-8">
-        <h2 className="text-2xl font-extrabold text-white">{heading}</h2>
-        <div className="no-scrollbar -mx-1 mt-4 flex snap-x gap-4 overflow-x-auto px-1 pb-2">
+        <div className="flex items-center justify-between gap-4">
+          <h2 className="text-2xl font-extrabold text-white">{heading}</h2>
+          <div className="flex shrink-0 gap-3">
+            <button
+              data-tv
+              type="button"
+              onClick={() => scrollRow(-1)}
+              aria-label={`${heading}: nach links scrollen`}
+              className="tv-focusable rounded-2xl bg-ink-800 px-6 py-3 text-2xl font-bold text-white"
+            >
+              ‹
+            </button>
+            <button
+              data-tv
+              type="button"
+              onClick={() => scrollRow(1)}
+              aria-label={`${heading}: nach rechts scrollen`}
+              className="tv-focusable rounded-2xl bg-ink-800 px-6 py-3 text-2xl font-bold text-white"
+            >
+              ›
+            </button>
+          </div>
+        </div>
+        <div ref={rowRef} className="no-scrollbar -mx-1 mt-4 flex snap-x gap-4 overflow-x-auto px-1 pb-2">
           {titles.map((t) => (
             <Card key={t.id} t={t} reason={reasons?.get(t.id)} />
           ))}
@@ -481,11 +509,7 @@ export default function TvPage() {
               Noch nichts gemerkt. Suche Titel und merke sie über die Detailansicht.
             </p>
           ) : (
-            <div className="no-scrollbar -mx-1 mt-4 flex snap-x gap-4 overflow-x-auto px-1 pb-2">
-              {saved.map((t) => (
-                <Card key={t.id} t={t} />
-              ))}
-            </div>
+            <Row heading="Gespeichert" titles={saved} />
           )}
         </section>
       )}

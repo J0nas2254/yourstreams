@@ -70,8 +70,16 @@ export function useTvFocus(enabled: boolean, onBack?: () => void) {
           const next = bestInDirection(current, dir);
           if (next) {
             e.preventDefault();
-            next.focus({ preventScroll: false });
-            next.scrollIntoView({ block: "nearest", behavior: "smooth" });
+            next.focus({ preventScroll: true });
+            next.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
+            // Horizontale Reihe zusätzlich mitscrollen, falls scrollIntoView nur vertikal wirkt.
+            const row = next.parentElement?.parentElement as HTMLElement | null;
+            if (row && row.scrollBy) {
+              const r = next.getBoundingClientRect();
+              const c = row.getBoundingClientRect();
+              if (r.right > c.right) row.scrollBy({ left: r.right - c.right + 24, behavior: "smooth" });
+              else if (r.left < c.left) row.scrollBy({ left: r.left - c.left - 24, behavior: "smooth" });
+            }
           }
         } else {
           const first = focusables(document)[0];
