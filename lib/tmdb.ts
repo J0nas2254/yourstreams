@@ -2,16 +2,27 @@ import type { AvailabilityEntry, AvailabilityKind, Genre, Title } from "./types"
 
 const TMDB_BASE = "https://api.themoviedb.org/3";
 
-export function tmdbKey(): string {
+export function envTmdbKey(): string {
   return (process.env.TMDB_API_KEY ?? "").trim();
 }
 
-export function hasTmdbKey(): boolean {
-  return tmdbKey().length > 0;
+export function tmdbKey(overrideKey?: string): string {
+  const o = (overrideKey ?? "").trim();
+  if (o) return o;
+  return envTmdbKey();
 }
 
-async function tmdb(path: string, params: Record<string, string> = {}) {
-  const key = tmdbKey();
+export function hasTmdbKey(overrideKey?: string): boolean {
+  return tmdbKey(overrideKey).length > 0;
+}
+
+/** Liest einen per Eingabefeld mitgeschickten Schlüssel aus dem Request-Header. */
+export function tmdbKeyFromRequest(req: Request): string {
+  return (req.headers.get("x-tmdb-key") ?? "").trim();
+}
+
+async function tmdb(path: string, params: Record<string, string> = {}, overrideKey?: string) {
+  const key = tmdbKey(overrideKey);
   if (!key) throw new Error("NO_TMDB_KEY");
   const url = new URL(TMDB_BASE + path);
   url.searchParams.set("api_key", key);
@@ -85,11 +96,11 @@ function baseTitle(item: any): Title {
   };
 }
 
-async function withProviders(t: Title): Promise<Title> {
+async function withProviders(t: Title, overrideKey?: string): Promise<Title> {
   const ref = tmdbIdOf(t);
   if (!ref) return t;
   try {
-    const wp = await tmdb(`/${ref.mediaType === "tv" ? "tv" : "movie"}/${ref.tmdbId}/watch/providers`, {});
+    const wp = await tmdb(`/${ref.mediaType === "tv" ? "tv" : "movie"}/${ref.tmdbId}/watch/providers`, {}, overrideKey);
     const de = wp?.results?.DE ?? null;
     const { availability, link } = mapWatchProviders(de);
     return { ...t, availability, justWatchLink: link };
@@ -98,36 +109,36 @@ async function withProviders(t: Title): Promise<Title> {
   }
 }
 
-export async function enrichWithProviders(items: any[], limit = 12): Promise<Title[]> {
+export async function enrichWithProviders(items: any[], limit = 12, overrideKey?: string): Promise<Title[]> {
   const out: Title[] = [];
   for (const item of items.slice(0, limit)) {
-    out.push(await withProviders(baseTitle(item)));
+    out.push(await withProviders(baseTitle(item), overrideKey));
   }
   return out;
 }
 
-export async function tmdbSearch(query: string): Promise<Title[]> {
+export async function tmdbSearch(query: string, overrideKey?: string): Promise<Title[]> {
   const data = await tmdb("/search/multi", {
     query,
     page: "1",
     include_adult: "false",
     region: "DE"
-  });
+  }, overrideKey);
   const items = (data?.results ?? []).filter(
     (r: any) => r?.media_type === "movie" || r?.media_type === "tv"
   );
-  return enrichWithProviders(items);
+  return enrichWithProviders(items, 12, overrideKey);
 }
 
-export async function tmdbTrending(): Promise<Title[]> {
-  const data = await tmdb("/trending/all/week", { region: "DE" });
+export async function tmdbTrending(overrideKey?: string): Promise<Title[]> {
+  const data = await tmdb("/trending/all/week", { region: "DE" }, overrideKey);
   const items = (data?.results ?? []).filter(
     (r: any) => r?.media_type === "movie" || r?.media_type === "tv"
   );
-  return enrichWithProviders(items, 12);
+  return enrichWithProviders(items, 12, overrideKey);
 }
 
-export async function tmdbDiscoverByProviders(providerIds: number[]): Promise<Title[]> {
+export async function tmdbDiscoverByProviders(providerIds: number[], overrideKey?: string): Promise<Title[]> {
   if (providerIds.length === 0) return [];
   const joined = providerIds.join("|");
   const [movies, tv] = await Promise.all([
@@ -138,7 +149,7 @@ export async function tmdbDiscoverByProviders(providerIds: number[]): Promise<Ti
       sort_by: "popularity.desc",
       page: "1",
       include_adult: "false"
-    }).catch(() => null),
+    }, overrideKey).catch(() => null),
     tmdb("/discover/tv", {
       watch_region: "DE",
       with_watch_providers: joined,
@@ -146,33 +157,34 @@ export async function tmdbDiscoverByProviders(providerIds: number[]): Promise<Ti
       sort_by: "popularity.desc",
       page: "1",
       include_adult: "false"
-    }).catch(() => null)
+    }, overrideKey).catch(() => null)
   ]);
   const items = [
     ...((movies?.results ?? []).map((r: any) => ({ ...r, media_type: "movie" }))),
     ...((tv?.results ?? []).map((r: any) => ({ ...r, media_type: "tv" })))
   ];
   items.sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0));
-  return enrichWithProviders(items, 12);
+  return enrichWithProviders(items, 12, overrideKey);
 }
 
-export async function tmdbGenres(): Promise<{ movie: Genre[]; tv: Genre[] }> {
+export async function tmdbGenres(overrideKey?: string): Promise<{ movie: Genre[]; tv: Genre[] }> {
   const [movie, tv] = await Promise.all([
-    tmdb("/genre/movie/list", {}).catch(() => ({ genres: [] })),
-    tmdb("/genre/tv/list", {}).catch(() => ({ genres: [] }))
+    tmdb("/genre/movie/list", {}, overrideKey).catch(() => ({ genres: [] })),
+    tmdb("/genre/tv/list", {}, overrideKey).catch(() => ({ genres: [] }))
   ]);
   return { movie: movie.genres ?? [], tv: tv.genres ?? [] };
 }
 
 export async function tmdbTitle(
   mediaType: "movie" | "tv",
-  tmdbId: number
+  tmdbId: number,
+  overrideKey?: string
 ): Promise<(Title & { imdbId: string | null }) | null> {
   try {
     const [detail, wp, ext] = await Promise.all([
-      tmdb(`/${mediaType}/${tmdbId}`, {}),
-      tmdb(`/${mediaType}/${tmdbId}/watch/providers`, {}).catch(() => null),
-      tmdb(`/${mediaType}/${tmdbId}/external_ids`, {}).catch(() => null)
+      tmdb(`/${mediaType}/${tmdbId}`, {}, overrideKey),
+      tmdb(`/${mediaType}/${tmdbId}/watch/providers`, {}, overrideKey).catch(() => null),
+      tmdb(`/${mediaType}/${tmdbId}/external_ids`, {}, overrideKey).catch(() => null)
     ]);
     const de = (wp as any)?.results?.DE ?? null;
     const { availability, link } = mapWatchProviders(de);
@@ -217,9 +229,10 @@ export async function tmdbTitle(
 /** Echte Episodendaten einer Staffel (TMDb), sortiert nach Episodennummer. */
 export async function tmdbSeasonEpisodes(
   tmdbId: number,
-  seasonNumber: number
+  seasonNumber: number,
+  overrideKey?: string
 ): Promise<Array<{ id: number; season_number: number; episode_number: number; name: string; overview: string; still_path?: string | null; air_date?: string | null }>> {
-  const data = await tmdb(`/tv/${tmdbId}/season/${seasonNumber}`, {});
+  const data = await tmdb(`/tv/${tmdbId}/season/${seasonNumber}`, {}, overrideKey);
   const eps = Array.isArray(data?.episodes) ? data.episodes : [];
   return eps
     .filter((e: any) => typeof e?.id === "number" && typeof e?.episode_number === "number")
@@ -235,10 +248,10 @@ export async function tmdbSeasonEpisodes(
     .sort((a: { episode_number: number }, b: { episode_number: number }) => a.episode_number - b.episode_number);
 }
 
-export async function tmdbProvidersDE() {
+export async function tmdbProvidersDE(overrideKey?: string) {
   const [movie, tv] = await Promise.all([
-    tmdb("/watch/providers/movie", { watch_region: "DE" }),
-    tmdb("/watch/providers/tv", { watch_region: "DE" })
+    tmdb("/watch/providers/movie", { watch_region: "DE" }, overrideKey),
+    tmdb("/watch/providers/tv", { watch_region: "DE" }, overrideKey)
   ]);
   const seen = new Map<number, { provider_id: number; provider_name: string; logoPath?: string | null }>();
   for (const list of [movie?.results ?? [], tv?.results ?? []]) {

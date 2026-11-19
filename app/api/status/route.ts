@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
-import { hasTmdbKey } from "@/lib/tmdb";
+import { hasTmdbKey, tmdbKeyFromRequest } from "@/lib/tmdb";
 
-export async function GET() {
+export async function GET(req: Request) {
+  const localTmdb = tmdbKeyFromRequest(req);
+  const localOmdb = (req.headers.get("x-omdb-key") ?? "").trim();
   return NextResponse.json({
-    configured: hasTmdbKey(),
-    omdbConfigured: Boolean((process.env.OMDB_API_KEY ?? "").trim()),
+    configured: hasTmdbKey(localTmdb),
+    omdbConfigured: Boolean((process.env.OMDB_API_KEY ?? "").trim() || localOmdb),
     region: "DE"
   });
 }

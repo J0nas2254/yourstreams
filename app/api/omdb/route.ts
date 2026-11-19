@@ -15,7 +15,7 @@ export async function GET(req: Request) {
   if (!/^tt\d+$/.test(imdbId)) {
     return NextResponse.json({ error: "Ungültige IMDb-ID." }, { status: 400 });
   }
-  const key = (process.env.OMDB_API_KEY ?? "").trim();
+  const key = (req.headers.get("x-omdb-key") ?? "").trim() || (process.env.OMDB_API_KEY ?? "").trim();
   if (!key) {
     return NextResponse.json(
       { configured: false, imdbId, error: "OMDb ist nicht konfiguriert (OMDB_API_KEY fehlt)." },

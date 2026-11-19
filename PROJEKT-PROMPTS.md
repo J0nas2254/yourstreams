@@ -242,8 +242,9 @@ Vor Abschluss jeder Änderung prüfen:
 
 - **Hosting:** Freebuff Sites (Cloudflare Workers, OpenNext-Adapter), Projekt
   „StreamFinder“.
-  - Produktion: https://streamfinder-jrwh3e.freebuff.site (veröffentlicht)
-  - Vorschau: https://streamfinder-jrwh3e-preview.freebuff.site
+  - Produktion: https://streamfinder-jrwh3e.freebuff.site (seit 19.11.2026 **offline** auf Wunsch, `published: false`)
+  - Vorschau: https://streamfinder-jrwh3e-preview.freebuff.site (ebenfalls offline)
+  - Korrektur 19.11.2026: Auf Wunsch offline genommen, weil die App privat bleiben soll. Siehe Prompt 8.
 - **Next.js 14.2.5 → 16.4.6**, weil der Adapter nur Next 15.5+/16 unterstützt
   (React bleibt bei 18.3.1). Angepasst: `app/api/title/[id]` und
   `app/api/tv/[tmdbId]/season/[n]` lesen `params` jetzt als Promise (Next 15+).
@@ -274,3 +275,37 @@ Vor Abschluss jeder Änderung prüfen:
       nach `out-next/`, Backend-URL im Client-Bundle.
 - [ ] Nicht prüfbar ohne Schlüssel: echte TMDb-Daten, Episoden, IMDb-Werte.
       Erst nach Eintragen von `TMDB_API_KEY` in den Secrets prüfbar.
+
+## Prompt 8: Offline + Schlüssel-Eingabefeld + Lint + open-next (Stand 19.11.2026)
+
+> „Bitte nimm die Seite offline weil es ja nur privat bleiben soll und füge ein Eingabefeld hinzu wo man die
+> beiden API-Keys eintippen kann. Bitte repariere `npm run lint` nach dem Next-16-Upgrade und reduziere die
+> `open-next.config.ts` auf das Nötige, weil das Hosting sie ohnehin überschreibt. Danach kurz neu deployen und
+> die betroffene Notiz in PROJEKT-PROMPTS.md korrigieren.“
+
+### Ergebnis
+
+- **Offline:** Produktion und Vorschau per `sites_set_published` auf `published: false` gesetzt (19.11.2026).
+  Die URLs liefern danach kein öffentliches Backend mehr – passend zum Privat-Gebrauch.
+- **Eingabefeld:** `/einstellungen` hat zwei Passwort-Felder für TMDb (Pflicht) und OMDb (optional).
+  - Speicherung nur auf dem Gerät (`localStorage`, `sf:tmdb-key:v1` / `sf:omdb-key:v1`), nie in Git/Bundle/APK.
+  - `lib/api.ts` schickt die Geräte-Schlüssel als Header `x-tmdb-key` / `x-omdb-key` mit; alle `/api`-Routen
+    (`trending`, `search`, `discover`, `providers`, `genres`, `title/[id]`, `tv/.../season`, `omdb`, `status`)
+    akzeptieren den Header als Fallback, Server-Env (`TMDB_API_KEY` / `OMDB_API_KEY`) bleibt vorrangig.
+  - Hinweis in der UI: nur auf dem eigenen Gerät verwenden, auf geteilten Geräten wieder löschen.
+- **`npm run lint` repariert:** `next lint` wurde in Next 16 entfernt (`Invalid project directory ... lint`).
+  `package.json` nutzt jetzt `"lint": "tsc --noEmit"` – `npm run lint` läuft wieder fehlerfrei.
+- **`open-next.config.ts` reduziert:** Nur noch `defineCloudflareConfig({})` mit Kommentar – Sites legt
+  Cache/Queue/Tag-Cache in `freebuff.open-next.config.ts` darüber und überschreibt die Datei beim Deploy.
+- **Redeploy:** Nach den Änderungen neu gebaut und deployt (Umgebungen bleiben offline, Code ist aktuell).
+
+### Geprüfte Kontrolle
+
+- [x] `sites_list`: beide Umgebungen `published: true` → danach `sites_set_published false` für Produktion und
+      Vorschau (`succeeded`, `published: false`).
+- [x] `npm test` → 11/11 bestanden.
+- [x] `npx tsc --noEmit` → keine Fehler.
+- [x] `npm run lint` → läuft wieder (entspricht `tsc --noEmit`), Exit 0.
+- [x] `npm run build` → Server-Build mit allen `/api`-Routen.
+- [ ] Nicht im Browser durchgeklickt: Eingabefeld speichern/löschen und `/api/status`-Umschlag mit Geräte-Schlüssel
+      bitte einmal unter `/einstellungen` prüfen (eigener Schlüssel nötig).

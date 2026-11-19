@@ -102,8 +102,8 @@ cd android
 Die App läuft als echter Next.js-Server (OpenNext-Adapter, Cloudflare Workers) auf Freebuff Sites – inklusive aller
 `/api`-Routen, damit die APK echte TMDb-Daten bekommt:
 
-- Produktion: https://streamfinder-jrwh3e.freebuff.site
-- Vorschau: https://streamfinder-jrwh3e-preview.freebuff.site
+- Produktion: https://streamfinder-jrwh3e.freebuff.site (derzeit offline, privat – `published: false`)
+- Vorschau: https://streamfinder-jrwh3e-preview.freebuff.site (derzeit offline)
 
 **Server-Variablen** (Projekt → Einstellungen → Secrets, jeweils für Produktion und Vorschau):
 

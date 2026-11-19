@@ -3,6 +3,12 @@
 import { useEffect, useState } from "react";
 import { apiStatus } from "@/lib/api.ts";
 import { usePrefs } from "@/lib/store";
+import {
+  clearLocalApiKeys,
+  getLocalOmdbKey,
+  getLocalTmdbKey,
+  setLocalApiKeys
+} from "@/lib/local-keys.ts";
 
 export default function EinstellungenPage() {
   const { prefs, resetInterests } = usePrefs();
@@ -12,11 +18,22 @@ export default function EinstellungenPage() {
     omdb: false
   });
   const [resetDone, setResetDone] = useState(false);
+  const [tmdbInput, setTmdbInput] = useState("");
+  const [omdbInput, setOmdbInput] = useState("");
+  const [keysSaved, setKeysSaved] = useState(false);
+  const [hasLocalKeys, setHasLocalKeys] = useState(false);
 
-  useEffect(() => {
+  function refreshStatus() {
     apiStatus()
       .then((d) => setStatus({ checked: true, configured: d.configured, omdb: d.omdbConfigured }))
       .catch(() => setStatus({ checked: true, configured: false, omdb: false }));
+  }
+
+  useEffect(() => {
+    refreshStatus();
+    setTmdbInput(getLocalTmdbKey());
+    setOmdbInput(getLocalOmdbKey());
+    setHasLocalKeys(Boolean(getLocalTmdbKey() || getLocalOmdbKey()));
   }, []);
 
   return (
@@ -41,18 +58,76 @@ export default function EinstellungenPage() {
         ) : (
           <p className="mt-2 text-sm text-slate-400">Status wird geprüft …</p>
         )}
+        <div className="mt-4 space-y-3 rounded-xl border border-white/10 bg-ink-950 p-4">
+          <h3 className="text-sm font-bold text-white">Schlüssel auf diesem Gerät eingeben (privat)</h3>
+          <p className="text-xs text-slate-400">
+            Nur auf diesem Gerät in <code className="rounded bg-ink-800 px-1">localStorage</code> gespeichert –
+            nie in Git, nie im Bundle. Auf geteilten Geräten nicht verwenden.
+          </p>
+          <label className="block text-sm text-slate-300">
+            TMDb-Schlüssel (Pflicht)
+            <input
+              type="password"
+              autoComplete="off"
+              value={tmdbInput}
+              onChange={(e) => setTmdbInput(e.target.value)}
+              placeholder="TMDB_API_KEY einfügen"
+              data-tv="tmdb-key"
+              className="mt-1 w-full rounded-lg border border-white/10 bg-ink-800 px-3 py-2 text-sm text-white placeholder:text-slate-500"
+            />
+          </label>
+          <label className="block text-sm text-slate-300">
+            OMDb-Schlüssel (optional, für IMDb-Bewertungen)
+            <input
+              type="password"
+              autoComplete="off"
+              value={omdbInput}
+              onChange={(e) => setOmdbInput(e.target.value)}
+              placeholder="OMDB_API_KEY einfügen (optional)"
+              data-tv="omdb-key"
+              className="mt-1 w-full rounded-lg border border-white/10 bg-ink-800 px-3 py-2 text-sm text-white placeholder:text-slate-500"
+            />
+          </label>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              data-tv="save-keys"
+              onClick={() => {
+                setLocalApiKeys(tmdbInput, omdbInput);
+                setHasLocalKeys(Boolean(tmdbInput.trim() || omdbInput.trim()));
+                setKeysSaved(true);
+                refreshStatus();
+              }}
+              className="rounded-full bg-white px-5 py-2 text-sm font-extrabold text-slate-900"
+            >
+              Schlüssel auf diesem Gerät speichern
+            </button>
+            {hasLocalKeys && (
+              <button
+                type="button"
+                onClick={() => {
+                  clearLocalApiKeys();
+                  setTmdbInput("");
+                  setOmdbInput("");
+                  setHasLocalKeys(false);
+                  setKeysSaved(false);
+                  refreshStatus();
+                }}
+                className="rounded-full border border-white/20 px-5 py-2 text-sm font-bold text-slate-200"
+              >
+                Geräte-Schlüssel löschen
+              </button>
+            )}
+          </div>
+          {keysSaved && <p className="text-sm text-emerald-300">Gespeichert – nur auf diesem Gerät.</p>}
+        </div>
         <div className="mt-3 space-y-2 text-sm text-slate-300">
-          <p><strong className="text-white">Einrichtung (privater Haushalt):</strong></p>
+          <p><strong className="text-white">Alternative Einrichtung (Server):</strong></p>
           <ol className="list-decimal space-y-1 pl-5">
-            <li><code className="rounded bg-ink-950 px-1">.env.example</code> nach <code className="rounded bg-ink-950 px-1">.env.local</code> kopieren – oder beim Hosting <code className="rounded bg-ink-950 px-1">TMDB_API_KEY</code> unter Einstellungen → Secrets eintragen.</li>
-            <li>TMDb-Schlüssel eintragen (<code className="rounded bg-ink-950 px-1">TMDB_API_KEY</code>, optional Lesetoken). Optional <code className="rounded bg-ink-950 px-1">OMDB_API_KEY</code> für IMDb-Bewertungen.</li>
+            <li><code className="rounded bg-ink-950 px-1">.env.example</code> nach <code className="rounded bg-ink-950 px-1">.env.local</code> kopieren.</li>
+            <li>TMDb-Schlüssel eintragen (<code className="rounded bg-ink-950 px-1">TMDB_API_KEY</code>). Optional <code className="rounded bg-ink-950 px-1">OMDB_API_KEY</code> für IMDb-Bewertungen.</li>
             <li>Server neu starten. Schlüssel bleiben serverseitig und stehen in <code className="rounded bg-ink-950 px-1">.gitignore</code>.</li>
           </ol>
-          <p>
-            Für die Android-APK zusätzlich ein öffentlich erreichbares HTTPS-Backend (diese App selbst gehostet) und
-            beim APK-Build <code className="rounded bg-ink-950 px-1">NEXT_PUBLIC_API_BASE</code> setzen (siehe README).
-            <strong className="text-white"> Schlüssel können aus einer APK ausgelesen werden – APK nicht öffentlich verteilen.</strong>
-          </p>
         </div>
       </section>
 

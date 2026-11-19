@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
-import { hasTmdbKey, tmdbSearch } from "@/lib/tmdb";
+import { hasTmdbKey, tmdbKeyFromRequest, tmdbSearch } from "@/lib/tmdb";
 
 export async function GET(req: Request) {
-  if (!hasTmdbKey()) {
+  const localKey = tmdbKeyFromRequest(req);
+  if (!hasTmdbKey(localKey)) {
     return NextResponse.json(
       { configured: false, error: "TMDb ist nicht konfiguriert. Lege TMDB_API_KEY als Server-Variable an (lokal .env.local, gehostet: Einstellungen → Secrets)." },
       { status: 503 }
@@ -12,7 +13,7 @@ export async function GET(req: Request) {
   const q = (url.searchParams.get("q") ?? "").trim();
   if (!q) return NextResponse.json({ configured: true, results: [] });
   try {
-    const results = await tmdbSearch(q);
+    const results = await tmdbSearch(q, localKey);
     return NextResponse.json({ configured: true, results });
   } catch {
     return NextResponse.json(

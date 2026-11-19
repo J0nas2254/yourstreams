@@ -5,6 +5,7 @@
 // Der TMDb-/OMDb-Schlüssel bleibt immer serverseitig und landet
 // niemals im Browser-Bundle oder APK.
 import type { Genre, ImdbRating, Provider, Title, TvEpisode } from "./types.ts";
+import { getLocalOmdbKey, getLocalTmdbKey } from "./local-keys.ts";
 
 function base(): string {
   const b = (process.env.NEXT_PUBLIC_API_BASE ?? "").trim().replace(/\/$/, "");
@@ -40,10 +41,20 @@ export class ApiError extends Error {
   }
 }
 
+function localKeyHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {};
+  // Nur geräteeigene Eingabe, nie aus Git/Bundle/APK.
+  const t = getLocalTmdbKey();
+  const o = getLocalOmdbKey();
+  if (t) headers["x-tmdb-key"] = t;
+  if (o) headers["x-omdb-key"] = o;
+  return headers;
+}
+
 async function getJSON<T>(path: string): Promise<T> {
   let res: Response;
   try {
-    res = await fetch(url(path));
+    res = await fetch(url(path), { headers: localKeyHeaders() });
   } catch {
     throw new ApiError("Keine Verbindung. Prüfe deine Internetverbindung.", 0, false);
   }

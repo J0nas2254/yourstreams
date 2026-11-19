@@ -1,15 +1,16 @@
 import { NextResponse } from "next/server";
-import { hasTmdbKey, tmdbProvidersDE } from "@/lib/tmdb";
+import { hasTmdbKey, tmdbKeyFromRequest, tmdbProvidersDE } from "@/lib/tmdb";
 
-export async function GET() {
-  if (!hasTmdbKey()) {
+export async function GET(req: Request) {
+  const localKey = tmdbKeyFromRequest(req);
+  if (!hasTmdbKey(localKey)) {
     return NextResponse.json(
       { configured: false, providers: [], error: "TMDb ist nicht konfiguriert. Lege TMDB_API_KEY als Server-Variable an (lokal .env.local, gehostet: Einstellungen → Secrets)." },
       { status: 503 }
     );
   }
   try {
-    const providers = await tmdbProvidersDE();
+    const providers = await tmdbProvidersDE(localKey);
     return NextResponse.json({ configured: true, providers });
   } catch {
     return NextResponse.json(
