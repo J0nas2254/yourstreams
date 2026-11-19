@@ -1,0 +1,32 @@
+/* 10-Foot-Layout: große Schrift, Overscan-Abstand, starker Fokus */
+.tv-root {
+  font-size: 20px;
+  padding: max(3vw, 24px);
+  min-height: 100vh;
+}
+
+.tv-root h1 {
+  font-size: 2.2rem;
+}
+
+.tv-focusable {
+  outline: none;
+  transition: transform 120ms ease, box-shadow 120ms ease, background-color 120ms ease;
+}
+
+.tv-focusable:focus {
+  box-shadow: 0 0 0 5px #34d399, 0 0 0 9px #101c3d, 0 12px 32px rgba(0, 0, 0, 0.45);
+  transform: scale(1.04);
+  z-index: 2;
+  position: relative;
+}
+
+.tv-card:focus {
+  background-color: #10234d !important;
+  color: #fff !important;
+}
+
+.tv-card:focus p,
+.tv-card:focus span {
+  color: #e2e8f0 !important;
+}

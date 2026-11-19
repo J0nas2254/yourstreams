@@ -176,3 +176,58 @@ Vor Abschluss jeder Änderung prüfen:
       (wird automatisch via `postbuild:android` hergestellt).
 - [ ] **Jede Code-Änderung sofort committen und pushen**, damit kein Stand
       mehr verloren gehen kann.
+
+---
+
+## Prompt 3: Alte und neue Version zusammenführen (Stand 19.11.2026)
+
+> Siehe `MERGE-PROMPT.md`: Google-Drive-ZIP (Stand 18.11.2026) mit dem
+> Cloud-Stand vergleichen, pro Funktion die bessere Umsetzung übernehmen,
+> Doppelungen entfernen, alles prüfen und sofort pushen.
+
+### Ergebnis des Merges
+
+- **Basis = Drive-Version** (vollständiger Projektstand): echter TMDb-/OMDb-
+  Datenfluss, personalisierter Feed (Hero, „Für meinen Haushalt“, „Für dich“,
+  „Im Trend“, Merkliste, „Überrasch mich“), Dienste-/Einstellungen-/Listen-/
+  Über-Seiten, IMDb-Bewertungen, PWA (Manifest, Service Worker), Fire-TV-Modus
+  mit räumlicher D-Pad-Navigation und das komplette Capacitor-Android-Projekt.
+- **Gesehen-Funktion:** Drive-Fassung gewinnt – echte TMDb-Episoden-IDs statt
+  vereinfachter „S1E1“-Schlüssel, Staffel-Pills, Fortschritt „x von ca. y“,
+  „Alle Episoden als gesehen“ + nachvollziehbares Zurücksetzen, Gesehen-Badges,
+  Gesehen-Filter und „Weiterschauen“ mit nächster offener Episode.
+- **Build/Android:** Drive-Fassung gewinnt – `CAPACITOR_BUILD=1` mit
+  `scripts/build-android.mjs`, das `app/api` für den statischen Export
+  beiseitelegt **und** die `.next`-Metadaten (`BUILD_ID`,
+  `required-server-files.json`, `export-marker.json`) sichert, damit
+  `next start` nach dem APK-Build weiter funktioniert. `postbuild:android`
+  baut den Server-Build automatisch neu.
+- **Entfernte Doppelungen der Cloud-Rekonstruktion:** `app/titel/[id]/`
+  (dynamische Route, für den statischen Export ungeeignet) → `/titel?id=`;
+  `components/continue-watching.tsx`, `components/title-card.tsx`,
+  `components/tv-provider.tsx`, `components/sw-register.tsx`,
+  `lib/prefs-core.mjs`, `lib/use-prefs.ts`, `lib/tv-nav.ts`,
+  `tests/prefs.test.mjs`, `next.config.mjs` – alle Funktionen sind in der
+  Drive-Fassung vollständiger vorhanden (`lib/prefs.ts`, `lib/store.ts`,
+  `app/sw-register.tsx`, `test/filter.test.mts`, `next.config.js`).
+- **Übernommen aus der Cloud-Fassung:** nichts Eigenständiges – die
+  Cloud-Fassung war eine Teil-Rekonstruktion; ihre Tests deckte die
+  Drive-Testsuite (11 Tests) vollständig ab.
+
+### Geprüfte Kontrolle
+
+- [x] `npm install` ohne Fehler (Lockfile aus dem Drive-Stand, unverändert
+      synchron).
+- [x] `npm test` → 11/11 bestanden.
+- [x] `npx tsc --noEmit` → keine Fehler.
+- [x] `npm run build` → erfolgreich, Server-Modus (`required-server-files.json`
+      ohne `output: "export"`), alle API-Routen enthalten.
+- [x] `npm run build:android` → statischer Export nach `out-next/`,
+      `npx cap sync android` erfolgreich; danach wieder Server-Build.
+- [x] Ohne API-Schlüssel: `/api/trending` und `/api/search` → 503-JSON,
+      Startseite zeigt Setup-Hinweis, keine Demo-Daten.
+- [x] Browser-Stichprobe: „Als gesehen markieren“ → `seen` in
+      `sf:prefs:v2`, Reload → Status bleibt, Undo entfernt ihn wieder;
+      Gesehen-Filter (Alle/Nur gesehene/Nur ungesehene) vorhanden.
+- [ ] Nicht prüfbar ohne `TMDB_API_KEY`: Episoden-/Staffel-Markierungen,
+      „Weiterschauen“ und Fire-TV-Fokus mit echten Titeln.

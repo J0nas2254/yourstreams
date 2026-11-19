@@ -1,162 +1,235 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import type { Title, TvEpisode } from "@/lib/types";
-import { episodeKey } from "@/lib/prefs";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import type { TvEpisode, TvSeasonInfo } from "@/lib/types";
+import { apiSeasonEpisodes } from "@/lib/api.ts";
+import { countSeenEpisodes } from "@/lib/prefs.ts";
 
-export async function apiSeasonEpisodes(tmdbId: number, season: number): Promise<TvEpisode[]> {
-  const res = await fetch(`/api/tv/${tmdbId}/season/${season}`);
-  if (!res.ok) throw new Error(`Staffel ${season} konnte nicht geladen werden`);
-  return res.json();
-}
+/**
+ * Lädt echte TMDb-Episodendaten pro Staffel (bei Bedarf + „alle laden“).
+ * Gibt nur echte API-Titel/Episoden zurück, erfindet nichts.
+ */
+export function useSeriesEpisodes(titleId: string, tmdbId: number | undefined, seasons: TvSeasonInfo[]) {
+  const [bySeason, setBySeason] = useState<Map<number, TvEpisode[]>>(new Map());
+  const [loading, setLoading] = useState<Set<number>>(new Set());
+  const [failed, setFailed] = useState(false);
 
-export function useSeriesEpisodes(title: Title) {
-  const [episodesBySeason, setEpisodesBySeason] = useState<Record<number, TvEpisode[]>>({});
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      if (title.kind !== "tv" || !title.tvInfo) return;
-      setLoading(true);
-      setError(null);
+  const loadSeason = useCallback(
+    async (seasonNumber: number) => {
+      if (tmdbId === undefined) return [];
+      let cached: TvEpisode[] | undefined;
+      setBySeason((prev) => {
+        cached = prev.get(seasonNumber);
+        return prev;
+      });
+      if (cached) return cached;
+      setLoading((prev) => new Set(prev).add(seasonNumber));
       try {
-        const entries: Record<number, TvEpisode[]> = {};
-        for (const s of title.tvInfo.seasons.slice(0, 6)) {
-          // max. 6 Staffeln automatisch laden, Rest auf Abruf
-          const eps = await apiSeasonEpisodes(title.tmdbId, s.season);
-          entries[s.season] = eps;
-        }
-        if (!cancelled) setEpisodesBySeason(entries);
-      } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : "Fehler");
+        const eps = await apiSeasonEpisodes(titleId, seasonNumber);
+        setBySeason((prev) => new Map(prev).set(seasonNumber, eps));
+        return eps;
+      } catch {
+        setFailed(true);
+        return [];
       } finally {
-        if (!cancelled) setLoading(false);
+        setLoading((prev) => {
+          const next = new Set(prev);
+          next.delete(seasonNumber);
+          return next;
+        });
       }
-    }
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, [title]);
+    },
+    [titleId, tmdbId]
+  );
 
-  return { episodesBySeason, loading, error };
+  const loadAll = useCallback(async (): Promise<TvEpisode[]> => {
+    const all: TvEpisode[] = [];
+    for (const s of seasons) {
+      const eps = await loadSeason(s.season_number);
+      all.push(...eps);
+    }
+    return all;
+  }, [seasons, loadSeason]);
+
+  return { bySeason, loading, failed, loadSeason, loadAll };
 }
 
-export function EpisodeTracker({
+export default function EpisodeTracker({
   title,
-  seenEpisodes,
+  seasons,
+  seenEpisodeIds,
+  fullySeen,
+  episodesBySeason,
+  loadingSeasons,
+  loadFailed,
+  onLoadSeason,
   onToggleEpisode,
-  onSetSeason,
+  onMarkSeason,
   onMarkAll,
   onUnmarkAll,
+  tvMode = false
 }: {
-  title: Title;
-  seenEpisodes: string[];
-  onToggleEpisode: (season: number, episode: number) => void;
-  onSetSeason: (season: number, episodes: TvEpisode[], seen: boolean) => void;
-  onMarkAll: (allKeys: string[]) => void;
+  title: string;
+  seasons: TvSeasonInfo[];
+  seenEpisodeIds: number[];
+  fullySeen: boolean;
+  episodesBySeason: Map<number, TvEpisode[]>;
+  loadingSeasons: Set<number>;
+  loadFailed: boolean;
+  onLoadSeason: (seasonNumber: number) => void;
+  onToggleEpisode: (episodeId: number) => void;
+  onMarkSeason: (episodeIds: number[], seenValue: boolean) => void;
+  onMarkAll: () => void;
   onUnmarkAll: () => void;
+  tvMode?: boolean;
 }) {
-  const { episodesBySeason, loading, error } = useSeriesEpisodes(title);
-  const seenSet = new Set(seenEpisodes);
+  // Staffeln sortiert: reguläre aufsteigend, „Specials“ (0) ans Ende
+  const ordered = useMemo(
+    () => [...seasons].sort((a, b) => (a.season_number === 0 ? 1 : 0) - (b.season_number === 0 ? 1 : 0) || a.season_number - b.season_number),
+    [seasons]
+  );
+  const [active, setActive] = useState<number | null>(ordered.find((s) => s.season_number > 0)?.season_number ?? ordered[0]?.season_number ?? null);
 
-  const allLoaded: TvEpisode[] = Object.values(episodesBySeason).flat();
-  const allKeys = allLoaded.map((e) => e.key ?? episodeKey(e.season, e.episode));
-  const seenCount = allKeys.filter((k) => seenSet.has(k)).length;
+  useEffect(() => {
+    if (active !== null) onLoadSeason(active);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active]);
 
-  if (title.kind !== "tv") return null;
+  const seenSet = useMemo(() => new Set(seenEpisodeIds), [seenEpisodeIds]);
+  const totalKnown = ordered.reduce((sum, s) => sum + s.episode_count, 0);
+  const loadedEps = useMemo(() => [...episodesBySeason.values()].flat(), [episodesBySeason]);
+  const seenLoaded = countSeenEpisodes(loadedEps.map((e) => e.id), seenEpisodeIds);
+
+  const focus = tvMode ? { "data-tv": true } : {};
+  const btn = tvMode
+    ? "tv-focusable rounded-2xl px-6 py-3 text-xl font-bold"
+    : "rounded-full px-3 py-1.5 text-xs font-bold";
+
+  const activeEps = active !== null ? episodesBySeason.get(active) ?? [] : [];
+  const activeAllSeen = activeEps.length > 0 && activeEps.every((e) => seenSet.has(e.id));
+
+  if (seasons.length === 0) return null;
 
   return (
-    <section aria-label="Episoden-Tracker" className="mt-6 rounded-xl border border-neutral-800 bg-neutral-900 p-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-lg font-semibold">
-          Serien-Fortschritt {allLoaded.length > 0 && `(${seenCount}/${allLoaded.length})`}
-        </h2>
-        <div className="flex gap-2">
+    <section aria-label={`Gesehen-Status und Episoden von ${title}`} className={tvMode ? "mt-6" : "mt-4 rounded-2xl border border-white/10 bg-ink-950/60 p-4"}>
+      <h3 className={tvMode ? "text-2xl font-extrabold text-white" : "text-base font-extrabold text-white"}>
+        Gesehen-Status: Serie & Episoden
+      </h3>
+      <p className={tvMode ? "mt-1 text-lg text-slate-400" : "mt-1 text-xs text-slate-400"}>
+        {fullySeen
+          ? "✓ Als ganz gesehen markiert."
+          : totalKnown > 0
+            ? `${seenEpisodeIds.length} von ca. ${totalKnown} Episoden gesehen.`
+            : `${seenEpisodeIds.length} Episoden gesehen.`}{" "}
+        Fortschritt wird nur lokal auf diesem Gerät gespeichert – die App erkennt nicht, was du beim Anbieter
+        tatsächlich angesehen hast.
+      </p>
+      {!fullySeen && (
+        <div className={tvMode ? "mt-3 flex flex-wrap gap-3" : "mt-2 flex flex-wrap gap-2"}>
           <button
             type="button"
-            data-tv
-            onClick={() => onMarkAll(allKeys)}
-            disabled={allLoaded.length === 0}
-            className="rounded-lg bg-green-600 px-3 py-2 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-green-400 disabled:opacity-50"
+            {...focus}
+            onClick={onMarkAll}
+            className={`${btn} bg-emerald-400 ${tvMode ? "text-slate-900" : "text-slate-900"}`}
           >
             Alle Episoden als gesehen markieren
           </button>
+        </div>
+      )}
+      {fullySeen && (
+        <div className={tvMode ? "mt-3" : "mt-2"}>
           <button
             type="button"
-            data-tv
+            {...focus}
             onClick={onUnmarkAll}
-            className="rounded-lg bg-neutral-700 px-3 py-2 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-green-400"
+            className={`${btn} bg-white/15 text-white`}
           >
-            Serie zurücksetzen
+            Als ungesehen markieren (Serie + alle Episoden)
           </button>
         </div>
+      )}
+      {loadFailed && (
+        <p className={tvMode ? "mt-2 text-lg text-amber-300" : "mt-2 text-xs text-amber-300"}>
+          Episodendaten konnten nicht geladen werden (offline oder API-Fehler). Markierungen bleiben erhalten.
+        </p>
+      )}
+
+      <div className={tvMode ? "mt-4 flex flex-wrap gap-3" : "mt-3 flex flex-wrap gap-2"} role="group" aria-label="Staffel wählen">
+        {ordered.map((s) => (
+          <button
+            key={s.season_number}
+            type="button"
+            {...focus}
+            onClick={() => setActive(s.season_number)}
+            aria-pressed={active === s.season_number}
+            className={`${btn} ${active === s.season_number ? "bg-white text-slate-900" : "bg-white/15 text-white"}`}
+          >
+            {s.season_number === 0 ? "Specials" : `S${s.season_number}`}
+          </button>
+        ))}
       </div>
-      <p className="mt-1 text-sm text-neutral-400">
-        Markierungen sind manuell auf diesem Gerät gespeichert. Die App erkennt nicht automatisch,
-        was du beim Streaminganbieter wirklich abgespielt hast.
-      </p>
-      {loading && <p className="mt-3 text-sm">Lade Episoden (echte Daten) …</p>}
-      {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
-      {!loading &&
-        Object.entries(episodesBySeason).map(([seasonStr, eps]) => {
-          const season = Number(seasonStr);
-          const seasonKeys = eps.map((e) => e.key);
-          const seasonSeen = seasonKeys.filter((k) => seenSet.has(k)).length;
-          return (
-            <div key={season} className="mt-4 border-t border-neutral-800 pt-3">
-              <div className="flex items-center justify-between">
-                <h3 className="font-semibold">
-                  Staffel {season} ({seasonSeen}/{eps.length} gesehen)
-                </h3>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    data-tv
-                    onClick={() => onSetSeason(season, eps, true)}
-                    className="rounded bg-neutral-700 px-2 py-1 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-green-400"
-                  >
-                    Staffel als gesehen
-                  </button>
-                  <button
-                    type="button"
-                    data-tv
-                    onClick={() => onSetSeason(season, eps, false)}
-                    className="rounded bg-neutral-800 px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-green-400"
-                  >
-                    Staffel zurücksetzen
-                  </button>
-                </div>
-              </div>
-              <ul className="mt-2 grid gap-1">
-                {eps.map((ep) => {
-                  const key = ep.key ?? episodeKey(ep.season, ep.episode);
-                  const seen = seenSet.has(key);
+
+      {active !== null && (
+        <div className="mt-3">
+          {loadingSeasons.has(active) ? (
+            <p className={tvMode ? "text-xl text-slate-300" : "text-sm text-slate-300"}>Episoden werden geladen …</p>
+          ) : activeEps.length === 0 ? (
+            <p className={tvMode ? "text-xl text-slate-400" : "text-sm text-slate-400"}>Keine Episodendaten für diese Staffel.</p>
+          ) : (
+            <>
+              <button
+                type="button"
+                {...focus}
+                onClick={() => onMarkSeason(activeEps.map((e) => e.id), !activeAllSeen)}
+                aria-pressed={activeAllSeen}
+                className={`${btn} ${activeAllSeen ? "bg-white text-slate-900" : "bg-white/15 text-white"}`}
+              >
+                {activeAllSeen ? "✓ Staffel gesehen – als ungesehen markieren" : "Staffel als gesehen markieren"}
+              </button>
+              <ul className={tvMode ? "mt-3 space-y-2" : "mt-2 space-y-1.5"}>
+                {activeEps.map((e) => {
+                  const done = seenSet.has(e.id);
                   return (
-                    <li key={key}>
+                    <li key={e.id}>
                       <button
                         type="button"
-                        data-tv
-                        onClick={() => onToggleEpisode(ep.season, ep.episode)}
-                        aria-pressed={seen}
-                        className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm focus:outline-none focus:ring-2 focus:ring-green-400 ${
-                          seen ? "bg-green-900/40" : "bg-neutral-800"
+                        {...focus}
+                        onClick={() => onToggleEpisode(e.id)}
+                        aria-pressed={done}
+                        className={`${tvMode ? "tv-focusable flex w-full items-center gap-4 rounded-2xl p-4 text-left text-xl" : "flex w-full items-center gap-3 rounded-xl p-2 text-left text-sm"} ${
+                          done ? "bg-emerald-400/15 text-white" : "bg-white/5 text-slate-200"
                         }`}
                       >
-                        <span>
-                          {ep.season}x{String(ep.episode).padStart(2, "0")} – {ep.name}
+                        <span
+                          aria-hidden
+                          className={`flex shrink-0 items-center justify-center rounded-full border font-black ${
+                            tvMode ? "h-10 w-10 text-xl" : "h-6 w-6 text-xs"
+                          } ${done ? "border-emerald-400 bg-emerald-400 text-slate-900" : "border-slate-500 text-transparent"}`}
+                        >
+                          ✓
                         </span>
-                        <span aria-hidden>{seen ? "✓" : "○"}</span>
+                        <span className="min-w-0">
+                          <span className="block truncate font-bold">
+                            S{e.season_number} E{e.episode_number} · {e.name}
+                          </span>
+                          {tvMode && e.overview && (
+                            <span className="block truncate text-lg text-slate-400">{e.overview}</span>
+                          )}
+                        </span>
                       </button>
                     </li>
                   );
                 })}
               </ul>
-            </div>
-          );
-        })}
+              {loadedEps.length > 0 && (
+                <p className={tvMode ? "mt-2 text-lg text-slate-500" : "mt-2 text-xs text-slate-500"}>
+                  Geladene Episoden: {seenLoaded} von {loadedEps.length} gesehen.
+                </p>
+              )}
+            </>
+          )}
+        </div>
+      )}
     </section>
   );
 }

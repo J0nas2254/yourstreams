@@ -1,16 +1,20 @@
 import { NextResponse } from "next/server";
-import { missingKeyResponse, tmdbKey, trendingTitles } from "@/lib/tmdb";
+import { hasTmdbKey, tmdbTrending } from "@/lib/tmdb";
 
 export async function GET() {
-  if (!tmdbKey()) {
-    return NextResponse.json(missingKeyResponse(), { status: 503 });
+  if (!hasTmdbKey()) {
+    return NextResponse.json(
+      { configured: false, error: "TMDb ist nicht konfiguriert. Lege TMDB_API_KEY in .env.local an (siehe README)." },
+      { status: 503 }
+    );
   }
   try {
-    return NextResponse.json(await trendingTitles());
-  } catch (e) {
+    const results = await tmdbTrending();
+    return NextResponse.json({ configured: true, results });
+  } catch {
     return NextResponse.json(
-      { error: e instanceof Error ? e.message : "Fehler" },
-      { status: 500 }
+      { configured: true, error: "Trends konnten nicht geladen werden." },
+      { status: 502 }
     );
   }
 }

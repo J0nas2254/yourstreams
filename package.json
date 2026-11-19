@@ -1,26 +1,34 @@
 {
   "name": "streamfinder",
-  "version": "1.1.0",
+  "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test test/*.test.mts",
     "build:android": "node scripts/build-android.mjs",
-    "postbuild:android": "next build",
-    "test": "node --test \"tests/*.test.mjs\""
+    "postbuild:android": "npm run build",
+    "cap:sync": "npx cap sync android"
   },
   "dependencies": {
-    "next": "14.2.35",
-    "react": "18.3.1",
-    "react-dom": "18.3.1"
+    "@capacitor/android": "^8.6.2",
+    "@capacitor/browser": "^8.0.5",
+    "@capacitor/cli": "^8.6.2",
+    "@capacitor/core": "^8.6.2",
+    "next": "14.2.5",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
-    "@capacitor/cli": "8.6.2",
-    "@capacitor/core": "8.6.2",
-    "@types/node": "20.14.0",
-    "@types/react": "18.3.3",
-    "@types/react-dom": "18.3.0",
-    "typescript": "5.5.4"
+    "@types/node": "^20.12.0",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "autoprefixer": "^10.4.19",
+    "postcss": "^8.4.39",
+    "tailwindcss": "^3.4.7",
+    "typescript": "^5.5.0"
   }
 }

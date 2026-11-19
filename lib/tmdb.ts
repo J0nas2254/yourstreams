@@ -1,143 +1,256 @@
-import type { Title, TvEpisode } from "./types";
+import type { AvailabilityEntry, AvailabilityKind, Genre, Title } from "./types";
 
-const TMDB_IMG = "https://image.tmdb.org/t/p/w500";
+const TMDB_BASE = "https://api.themoviedb.org/3";
 
-export function tmdbKey(): string | null {
-  return process.env.TMDB_API_KEY ?? null;
+export function tmdbKey(): string {
+  return (process.env.TMDB_API_KEY ?? "").trim();
 }
 
-export function missingKeyResponse() {
-  return {
-    error: "TMDB_API_KEY fehlt",
-    hint: "Lege .env.local mit TMDB_API_KEY an (siehe .env.example) und starte neu. Es werden keine Demo-Daten angezeigt.",
-  };
+export function hasTmdbKey(): boolean {
+  return tmdbKey().length > 0;
 }
 
-async function tmdb(path: string) {
+async function tmdb(path: string, params: Record<string, string> = {}) {
   const key = tmdbKey();
-  if (!key) {
-    const e = new Error("TMDB_API_KEY fehlt") as Error & { status?: number };
-    e.status = 503;
-    throw e;
-  }
-  const url = `https://api.themoviedb.org/3${path}${
-    path.includes("?") ? "&" : "?"
-  }api_key=${encodeURIComponent(key)}&language=de-DE`;
-  const res = await fetch(url, { next: { revalidate: 3600 } });
-  if (!res.ok) throw new Error(`TMDb-Fehler ${res.status}`);
+  if (!key) throw new Error("NO_TMDB_KEY");
+  const url = new URL(TMDB_BASE + path);
+  url.searchParams.set("api_key", key);
+  url.searchParams.set("language", "de-DE");
+  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
+  const res = await fetch(url.toString(), { next: { revalidate: 3600 } });
+  if (!res.ok) throw new Error(`TMDb-Fehler: ${res.status}`);
   return res.json();
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function mapMovie(m: any): Title {
+type TmdbProviderItem = {
+  provider_id: number;
+  provider_name: string;
+  logo_path?: string | null;
+};
+
+function mapWatchProviders(de: any): { availability: AvailabilityEntry[]; link: string | null } {
+  const availability: AvailabilityEntry[] = [];
+  if (!de) return { availability, link: null };
+  const mapping: Array<[string, AvailabilityKind]> = [
+    ["flatrate", "flatrate"],
+    ["free", "free"],
+    ["ads", "ads"],
+    ["rent", "rent"],
+    ["buy", "buy"]
+  ];
+  for (const [field, kind] of mapping) {
+    const list = de[field] as TmdbProviderItem[] | undefined;
+    if (Array.isArray(list)) {
+      for (const p of list) {
+        availability.push({
+          provider_id: p.provider_id,
+          provider_name: p.provider_name,
+          kind
+        });
+      }
+    }
+  }
+  return { availability, link: typeof de.link === "string" ? de.link : null };
+}
+
+export function toYear(dateStr?: string | null): number | null {
+  if (!dateStr) return null;
+  const y = Number(String(dateStr).slice(0, 4));
+  return Number.isFinite(y) ? y : null;
+}
+
+export function tmdbIdOf(t: Title): { mediaType: "movie" | "tv"; tmdbId: number } | null {
+  const m = t.id.match(/^tmdb-(movie|tv)-(\d+)$/);
+  if (m) return { mediaType: m[1] as "movie" | "tv", tmdbId: Number(m[2]) };
+  if (typeof t.tmdbId === "number") return { mediaType: t.mediaType, tmdbId: t.tmdbId };
+  return null;
+}
+
+function baseTitle(item: any): Title {
+  const mediaType = item.media_type === "tv" ? "tv" : "movie";
   return {
-    id: `tmdb-movie-${m.id}`,
-    tmdbId: m.id,
-    kind: "movie",
-    title: m.title ?? m.name ?? "Unbekannt",
-    overview: m.overview ?? "",
-    poster: m.poster_path ? `${TMDB_IMG}${m.poster_path}` : null,
-    backdrop: m.backdrop_path
-      ? `https://image.tmdb.org/t/p/w780${m.backdrop_path}`
-      : null,
-    rating:
-      typeof m.vote_average === "number" ? Math.round(m.vote_average * 10) / 10 : null,
+    id: `tmdb-${mediaType}-${item.id}`,
+    tmdbId: item.id,
+    mediaType,
+    title: item.title ?? item.name ?? "Ohne Titel",
+    year: toYear(item.release_date ?? item.first_air_date),
+    overview: item.overview ?? "",
     genres: [],
+    genreIds: Array.isArray(item.genre_ids) ? item.genre_ids : [],
+    posterPath: item.poster_path ?? null,
+    backdropPath: item.backdrop_path ?? null,
+    voteAverage: typeof item.vote_average === "number" ? item.vote_average : null,
+    availability: [],
+    justWatchLink: null
   };
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function mapTv(s: any): Title {
-  return {
-    id: `tmdb-tv-${s.id}`,
-    tmdbId: s.id,
-    kind: "tv",
-    title: s.name ?? s.title ?? "Unbekannt",
-    overview: s.overview ?? "",
-    poster: s.poster_path ? `${TMDB_IMG}${s.poster_path}` : null,
-    backdrop: s.backdrop_path
-      ? `https://image.tmdb.org/t/p/w780${s.backdrop_path}`
-      : null,
-    rating:
-      typeof s.vote_average === "number" ? Math.round(s.vote_average * 10) / 10 : null,
-    genres: [],
-  };
-}
-
-export async function searchTitles(query: string): Promise<Title[]> {
-  if (!query.trim()) return [];
-  const [movies, series] = await Promise.all([
-    tmdb(`/search/movie?query=${encodeURIComponent(query)}&include_adult=false`),
-    tmdb(`/search/tv?query=${encodeURIComponent(query)}&include_adult=false`),
-  ]);
-  const a = (movies.results ?? []).slice(0, 10).map(mapMovie);
-  const b = (series.results ?? []).slice(0, 10).map(mapTv);
-  return [...a, ...b];
-}
-
-export async function trendingTitles(): Promise<Title[]> {
-  const data = await tmdb(`/trending/all/week`);
-  return (data.results ?? [])
-    .filter(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (r: any) => r.media_type === "movie" || r.media_type === "tv"
-    )
-    .slice(0, 20)
-    .map((r: { media_type: string }) =>
-      r.media_type === "movie" ? mapMovie(r) : mapTv(r)
-    );
-}
-
-export async function titleDetails(kind: "movie" | "tv", tmdbId: number): Promise<Title> {
-  const data = await tmdb(
-    kind === "movie"
-      ? `/movie/${tmdbId}?append_to_response=watch/providers`
-      : `/tv/${tmdbId}?append_to_response=watch/providers`
-  );
-  const base = kind === "movie" ? mapMovie(data) : mapTv(data);
-  // Verfügbarkeit (echte TMDb watch/providers, DE bevorzugt)
+async function withProviders(t: Title): Promise<Title> {
+  const ref = tmdbIdOf(t);
+  if (!ref) return t;
   try {
-    const prov = data["watch/providers"]?.results?.DE?.flatrate ?? [];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    base.providers = prov.map((p: any) => p.provider_name as string);
+    const wp = await tmdb(`/${ref.mediaType === "tv" ? "tv" : "movie"}/${ref.tmdbId}/watch/providers`, {});
+    const de = wp?.results?.DE ?? null;
+    const { availability, link } = mapWatchProviders(de);
+    return { ...t, availability, justWatchLink: link };
   } catch {
-    base.providers = [];
+    return t;
   }
-  if (kind === "tv") {
-    const seasons = (data.seasons ?? [])
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .filter((s: any) => s.season_number >= 1)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .map((s: any) => ({
-        season: s.season_number as number,
-        count: (s.episode_count as number) ?? 0,
-      }));
-    base.tvInfo = { seasons };
-  }
-  // Genres (echt)
-  if (Array.isArray(data.genres)) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    base.genres = data.genres.map((g: any) => g.name as string);
-  }
-  return base;
 }
 
-export async function seasonEpisodes(
-  tmdbId: number,
-  season: number
-): Promise<TvEpisode[]> {
-  const data = await tmdb(`/tv/${tmdbId}/season/${season}`);
-  return (data.episodes ?? []).map(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (e: any): TvEpisode => ({
-      season: e.season_number as number,
-      episode: e.episode_number as number,
-      name: (e.name as string) ?? `Episode ${e.episode_number}`,
-      still: e.still_path
-        ? `https://image.tmdb.org/t/p/w300${e.still_path}`
-        : null,
-      airDate: (e.air_date as string) ?? null,
-      key: `S${e.season_number}E${e.episode_number}`,
-    })
+export async function enrichWithProviders(items: any[], limit = 12): Promise<Title[]> {
+  const out: Title[] = [];
+  for (const item of items.slice(0, limit)) {
+    out.push(await withProviders(baseTitle(item)));
+  }
+  return out;
+}
+
+export async function tmdbSearch(query: string): Promise<Title[]> {
+  const data = await tmdb("/search/multi", {
+    query,
+    page: "1",
+    include_adult: "false",
+    region: "DE"
+  });
+  const items = (data?.results ?? []).filter(
+    (r: any) => r?.media_type === "movie" || r?.media_type === "tv"
   );
+  return enrichWithProviders(items);
+}
+
+export async function tmdbTrending(): Promise<Title[]> {
+  const data = await tmdb("/trending/all/week", { region: "DE" });
+  const items = (data?.results ?? []).filter(
+    (r: any) => r?.media_type === "movie" || r?.media_type === "tv"
+  );
+  return enrichWithProviders(items, 12);
+}
+
+export async function tmdbDiscoverByProviders(providerIds: number[]): Promise<Title[]> {
+  if (providerIds.length === 0) return [];
+  const joined = providerIds.join("|");
+  const [movies, tv] = await Promise.all([
+    tmdb("/discover/movie", {
+      watch_region: "DE",
+      with_watch_providers: joined,
+      with_watch_monetization_types: "flatrate|free|ads",
+      sort_by: "popularity.desc",
+      page: "1",
+      include_adult: "false"
+    }).catch(() => null),
+    tmdb("/discover/tv", {
+      watch_region: "DE",
+      with_watch_providers: joined,
+      with_watch_monetization_types: "flatrate|free|ads",
+      sort_by: "popularity.desc",
+      page: "1",
+      include_adult: "false"
+    }).catch(() => null)
+  ]);
+  const items = [
+    ...((movies?.results ?? []).map((r: any) => ({ ...r, media_type: "movie" }))),
+    ...((tv?.results ?? []).map((r: any) => ({ ...r, media_type: "tv" })))
+  ];
+  items.sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0));
+  return enrichWithProviders(items, 12);
+}
+
+export async function tmdbGenres(): Promise<{ movie: Genre[]; tv: Genre[] }> {
+  const [movie, tv] = await Promise.all([
+    tmdb("/genre/movie/list", {}).catch(() => ({ genres: [] })),
+    tmdb("/genre/tv/list", {}).catch(() => ({ genres: [] }))
+  ]);
+  return { movie: movie.genres ?? [], tv: tv.genres ?? [] };
+}
+
+export async function tmdbTitle(
+  mediaType: "movie" | "tv",
+  tmdbId: number
+): Promise<(Title & { imdbId: string | null }) | null> {
+  try {
+    const [detail, wp, ext] = await Promise.all([
+      tmdb(`/${mediaType}/${tmdbId}`, {}),
+      tmdb(`/${mediaType}/${tmdbId}/watch/providers`, {}).catch(() => null),
+      tmdb(`/${mediaType}/${tmdbId}/external_ids`, {}).catch(() => null)
+    ]);
+    const de = (wp as any)?.results?.DE ?? null;
+    const { availability, link } = mapWatchProviders(de);
+    const genres = Array.isArray(detail?.genres)
+      ? detail.genres.map((g: any) => g?.name).filter(Boolean)
+      : [];
+    const genreIds = Array.isArray(detail?.genres)
+      ? detail.genres.map((g: any) => g?.id).filter((n: any) => typeof n === "number")
+      : [];
+    const seasons = Array.isArray((detail as any)?.seasons)
+      ? (detail as any).seasons
+          .filter((s: any) => typeof s?.season_number === "number")
+          .map((s: any) => ({
+            season_number: s.season_number,
+            name: typeof s.name === "string" && s.name ? s.name : `Staffel ${s.season_number}`,
+            episode_count: typeof s.episode_count === "number" ? s.episode_count : 0
+          }))
+          .sort((a: { season_number: number }, b: { season_number: number }) => a.season_number - b.season_number)
+      : [];
+    return {
+      id: `tmdb-${mediaType}-${tmdbId}`,
+      tmdbId,
+      mediaType,
+      title: detail?.title ?? detail?.name ?? "Ohne Titel",
+      year: toYear(detail?.release_date ?? detail?.first_air_date),
+      overview: detail?.overview ?? "",
+      genres,
+      genreIds,
+      posterPath: detail?.poster_path ?? null,
+      backdropPath: detail?.backdrop_path ?? null,
+      voteAverage: typeof detail?.vote_average === "number" ? detail.vote_average : null,
+      imdbId: typeof (ext as any)?.imdb_id === "string" ? (ext as any).imdb_id : null,
+      availability,
+      justWatchLink: link,
+      tvInfo: mediaType === "tv" ? { seasons } : null
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** Echte Episodendaten einer Staffel (TMDb), sortiert nach Episodennummer. */
+export async function tmdbSeasonEpisodes(
+  tmdbId: number,
+  seasonNumber: number
+): Promise<Array<{ id: number; season_number: number; episode_number: number; name: string; overview: string; still_path?: string | null; air_date?: string | null }>> {
+  const data = await tmdb(`/tv/${tmdbId}/season/${seasonNumber}`, {});
+  const eps = Array.isArray(data?.episodes) ? data.episodes : [];
+  return eps
+    .filter((e: any) => typeof e?.id === "number" && typeof e?.episode_number === "number")
+    .map((e: any) => ({
+      id: e.id,
+      season_number: typeof e.season_number === "number" ? e.season_number : seasonNumber,
+      episode_number: e.episode_number,
+      name: typeof e.name === "string" && e.name ? e.name : `Episode ${e.episode_number}`,
+      overview: typeof e.overview === "string" ? e.overview : "",
+      still_path: e.still_path ?? null,
+      air_date: e.air_date ?? null
+    }))
+    .sort((a: { episode_number: number }, b: { episode_number: number }) => a.episode_number - b.episode_number);
+}
+
+export async function tmdbProvidersDE() {
+  const [movie, tv] = await Promise.all([
+    tmdb("/watch/providers/movie", { watch_region: "DE" }),
+    tmdb("/watch/providers/tv", { watch_region: "DE" })
+  ]);
+  const seen = new Map<number, { provider_id: number; provider_name: string; logoPath?: string | null }>();
+  for (const list of [movie?.results ?? [], tv?.results ?? []]) {
+    for (const p of list) {
+      if (!seen.has(p.provider_id)) {
+        seen.set(p.provider_id, {
+          provider_id: p.provider_id,
+          provider_name: p.provider_name,
+          logoPath: p.logo_path ?? null
+        });
+      }
+    }
+  }
+  return Array.from(seen.values()).sort((a, b) => a.provider_name.localeCompare(b.provider_name, "de"));
 }

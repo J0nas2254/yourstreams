@@ -1,19 +1,23 @@
 import { NextResponse } from "next/server";
-import { missingKeyResponse, searchTitles, tmdbKey } from "@/lib/tmdb";
+import { hasTmdbKey, tmdbSearch } from "@/lib/tmdb";
 
 export async function GET(req: Request) {
-  if (!tmdbKey()) {
-    return NextResponse.json(missingKeyResponse(), { status: 503 });
-  }
-  const { searchParams } = new URL(req.url);
-  const q = searchParams.get("q") ?? "";
-  try {
-    const titles = await searchTitles(q);
-    return NextResponse.json(titles);
-  } catch (e) {
+  if (!hasTmdbKey()) {
     return NextResponse.json(
-      { error: e instanceof Error ? e.message : "Suche fehlgeschlagen" },
-      { status: 500 }
+      { configured: false, error: "TMDb ist nicht konfiguriert. Lege TMDB_API_KEY in .env.local an (siehe README)." },
+      { status: 503 }
+    );
+  }
+  const url = new URL(req.url);
+  const q = (url.searchParams.get("q") ?? "").trim();
+  if (!q) return NextResponse.json({ configured: true, results: [] });
+  try {
+    const results = await tmdbSearch(q);
+    return NextResponse.json({ configured: true, results });
+  } catch {
+    return NextResponse.json(
+      { configured: true, error: "Suche fehlgeschlagen. Bitte später erneut versuchen." },
+      { status: 502 }
     );
   }
 }

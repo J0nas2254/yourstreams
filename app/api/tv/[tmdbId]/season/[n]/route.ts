@@ -1,25 +1,23 @@
 import { NextResponse } from "next/server";
-import { missingKeyResponse, seasonEpisodes, tmdbKey } from "@/lib/tmdb";
+import { hasTmdbKey, tmdbSeasonEpisodes } from "@/lib/tmdb";
 
-export async function GET(
-  _req: Request,
-  { params }: { params: { tmdbId: string; n: string } }
-) {
-  if (!tmdbKey()) {
-    return NextResponse.json(missingKeyResponse(), { status: 503 });
+// Echte Episodendaten einer Staffel (TMDb). Schlüssel bleibt serverseitig.
+export async function GET(req: Request, { params }: { params: { tmdbId: string; n: string } }) {
+  if (!hasTmdbKey()) {
+    return NextResponse.json(
+      { configured: false, error: "TMDb ist nicht konfiguriert (TMDB_API_KEY fehlt)." },
+      { status: 503 }
+    );
   }
   const tmdbId = Number(params.tmdbId);
   const season = Number(params.n);
-  if (!Number.isFinite(tmdbId) || !Number.isFinite(season)) {
-    return NextResponse.json({ error: "Ungültige Parameter" }, { status: 400 });
+  if (!Number.isFinite(tmdbId) || tmdbId <= 0 || !Number.isFinite(season) || season < 0) {
+    return NextResponse.json({ configured: true, error: "Ungültige Staffelanfrage." }, { status: 400 });
   }
   try {
-    return NextResponse.json(await seasonEpisodes(tmdbId, season));
-  } catch (e) {
-    const status = (e as Error & { status?: number }).status ?? 500;
-    return NextResponse.json(
-      { error: e instanceof Error ? e.message : "Fehler" },
-      { status }
-    );
+    const episodes = await tmdbSeasonEpisodes(tmdbId, season);
+    return NextResponse.json({ configured: true, episodes });
+  } catch {
+    return NextResponse.json({ configured: true, error: "Episoden konnten nicht geladen werden." }, { status: 502 });
   }
 }

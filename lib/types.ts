@@ -1,54 +1,106 @@
-export type TitleKind = "movie" | "tv";
+export type MediaType = "movie" | "tv";
 
-export interface TvEpisode {
-  season: number;
-  episode: number;
-  name: string;
-  still?: string | null;
-  airDate?: string | null;
-  key: string; // z.B. "S1E3"
+export type AvailabilityKind = "flatrate" | "free" | "ads" | "rent" | "buy";
+
+export interface ProviderRef {
+  provider_id: number;
+  provider_name: string;
+}
+
+export interface AvailabilityEntry extends ProviderRef {
+  kind: AvailabilityKind;
 }
 
 export interface TvSeasonInfo {
-  season: number;
-  count: number;
-  episodes?: TvEpisode[];
+  season_number: number;
+  name: string;
+  episode_count: number;
+}
+
+export interface TvEpisode {
+  id: number;
+  season_number: number;
+  episode_number: number;
+  name: string;
+  overview: string;
+  still_path?: string | null;
+  air_date?: string | null;
 }
 
 export interface Title {
-  /** "tmdb-movie-<id>" oder "tmdb-tv-<id>" */
   id: string;
-  tmdbId: number;
-  kind: TitleKind;
+  tmdbId?: number;
+  mediaType: MediaType;
   title: string;
+  year: number | null;
   overview: string;
-  poster?: string | null;
-  backdrop?: string | null;
-  /** TMDb-Bewertung (0-10). IMDb wird dort angezeigt, wo echte IMDb-Daten vorliegen. */
-  rating?: number | null;
-  genres?: string[];
-  /** z.B. ["Netflix", "Prime"] – echte TMDb watch/providers, sonst leer */
-  providers?: string[];
-  tvInfo?: {
-    seasons: TvSeasonInfo[];
-  };
+  genres: string[];
+  genreIds?: number[];
+  posterPath?: string | null;
+  backdropPath?: string | null;
+  voteAverage?: number | null;
+  imdbId?: string | null;
+  availability: AvailabilityEntry[];
+  justWatchLink?: string | null;
+  /** Staffelübersicht aus echten TMDb-Seriendetails (nur mediaType "tv", sonst null). */
+  tvInfo?: { seasons: TvSeasonInfo[] } | null;
 }
+
+export interface ImdbRating {
+  imdbId: string;
+  rating: number | null;
+  votes: string | null;
+  cachedAt: string;
+}
+
+export interface Provider extends ProviderRef {
+  logoPath?: string | null;
+}
+
+export interface Genre {
+  id: number;
+  name: string;
+}
+
+// ---- Personalisierung (lokal, kein Konto) ----
+
+export type Interest = "up" | "down";
 
 export interface Prefs {
-  household: string;
-  seenIds: string[];
-  /** titleId -> ["S1E1", "S1E2", ...] */
-  seenEpisodes: Record<string, string[]>;
-  watchlist: string[];
-  hideSeenFromFeed: boolean;
+  services: number[];
+  watchlist: Array<{ id: string; addedAt: string }>;
+  /** Vollständig gesehene Titel-IDs (Filme) bzw. Serien-IDs (alle Episoden gesehen). */
+  seen: string[];
+  /** Einzelne gesehene Episoden pro Serien-ID (echte TMDb-Episoden-IDs). */
+  seenEpisodes: Record<string, number[]>;
+  interests: Record<string, Interest>; // titleId -> up/down
+  notInterested: string[];
 }
 
-export type SeenFilter = "all" | "seen" | "unseen";
+export const EMPTY_PREFS: Prefs = {
+  services: [],
+  watchlist: [],
+  seen: [],
+  seenEpisodes: {},
+  interests: {},
+  notInterested: []
+};
 
-export interface SearchFilters {
-  query: string;
-  kind: "all" | TitleKind;
-  provider: string; // "all" oder Anbietername
-  seenFilter: SeenFilter;
-  seenIds?: string[];
+export interface ScoredTitle {
+  title: Title;
+  score: number;
+  reasons: string[];
 }
+
+export const AVAILABILITY_LABELS: Record<AvailabilityKind, string> = {
+  flatrate: "Abo",
+  free: "Kostenlos",
+  ads: "Werbung",
+  rent: "Leihen",
+  buy: "Kaufen"
+};
+
+export const AVAILABILITY_ORDER: AvailabilityKind[] = ["flatrate", "free", "ads", "rent", "buy"];
+
+// Als „inklusive“ gelten Kategorien ohne zusätzliche Zahlung pro Titel.
+export const INCLUDED_KINDS: AvailabilityKind[] = ["flatrate", "free", "ads"];

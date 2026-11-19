@@ -1,37 +1,64 @@
-import type { Metadata } from "next";
-import "./globals.css";
-import { TvProvider } from "@/components/tv-provider";
-import { SwRegister } from "@/components/sw-register";
+import type { Metadata, Viewport } from "next";
 import Link from "next/link";
+import TvRedirect from "@/components/tv-redirect";
+import StatusBanner from "./status-banner";
+import SwRegister from "./sw-register";
+import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "StreamFinder",
-  description: "Filme und Serien finden – mit Gesehen-Status, Merkliste und Fire-TV-Bedienung",
+  title: "StreamFinder – Finde Filme & Serien deiner Abos",
+  description:
+    "StreamFinder hilft dir in Deutschland, Filme und Serien zu finden, die bei deinen Streaming-Abos verfügbar sind.",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "StreamFinder" },
+  icons: { icon: "/icon.svg", apple: "/icon.svg" }
+};
+
+export const viewport: Viewport = {
+  themeColor: "#070b16",
+  width: "device-width",
+  initialScale: 1
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="de">
-      <body className="min-h-screen bg-black text-white">
-        <TvProvider />
+      <body className="cinema-bg min-h-screen font-display">
         <SwRegister />
-        <header className="border-b border-neutral-800">
-          <nav className="mx-auto flex max-w-6xl items-center gap-4 p-4" aria-label="Hauptmenü">
-            <Link href="/" data-tv className="text-lg font-bold text-green-400 rounded focus:outline-none focus:ring-2 focus:ring-green-400">
-              StreamFinder
+        <TvRedirect />
+        <a
+          href="#inhalt"
+          className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded focus:bg-white focus:px-3 focus:py-2 focus:text-slate-900"
+        >
+          Zum Inhalt springen
+        </a>
+        <header className="sticky top-0 z-30 border-b border-white/10 bg-ink-950/85 backdrop-blur">
+          <div className="mx-auto flex max-w-6xl items-center justify-between gap-2 px-4 py-3">
+            <Link href="/" className="text-lg font-black tracking-tight text-white">
+              Stream<span className="text-gold-400">Finder</span>
             </Link>
-            <Link href="/" data-tv className="rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-green-400">
-              Start
-            </Link>
-            <Link href="/suche" data-tv className="rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-green-400">
-              Suche
-            </Link>
-            <Link href="/tv" data-tv className="rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-green-400">
-              Serien
-            </Link>
-          </nav>
+            <nav aria-label="Hauptnavigation" className="flex flex-wrap items-center gap-1 text-sm font-semibold text-slate-200">
+              <Link className="rounded px-2 py-1.5 hover:bg-white/10" href="/">Start</Link>
+              <Link className="rounded px-2 py-1.5 hover:bg-white/10" href="/suche">Suche</Link>
+              <Link className="rounded px-2 py-1.5 hover:bg-white/10" href="/liste">Liste</Link>
+              <Link className="rounded px-2 py-1.5 hover:bg-white/10" href="/dienste">Dienste</Link>
+              <Link className="rounded px-2 py-1.5 hover:bg-white/10" href="/einstellungen">Mehr</Link>
+              <Link className="rounded px-2 py-1.5 hover:bg-white/10" href="/tv">TV</Link>
+            </nav>
+          </div>
         </header>
-        <main className="mx-auto max-w-6xl p-4">{children}</main>
+        <StatusBanner />
+        <main id="inhalt" className="mx-auto w-full max-w-6xl px-4 pb-16 pt-6">
+          {children}
+        </main>
+        <footer className="border-t border-white/10">
+          <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-4 text-sm text-slate-400">
+            <p>StreamFinder · Region Deutschland (DE) · Keine Wiedergabe in der App.</p>
+            <Link href="/ueber" className="font-semibold text-slate-200 underline">
+              Quellen & Über
+            </Link>
+          </div>
+        </footer>
       </body>
     </html>
   );

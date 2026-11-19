@@ -1,52 +1,108 @@
 # StreamFinder
 
-Filme und Serien finden – mit echten TMDb-Daten, Merkliste, Haushaltsprofil und Fire-TV-Bedienung.
+Privater Haushalts-Finder für Filme & Serien (Next.js App Router + TypeScript + Tailwind, PWA, Capacitor-Android-Hülle).
+Zeigt echte Titel, Bilder, IMDb-Bewertungen und Streaming-Verfügbarkeiten in **Deutschland (DE)** – niemals Demo- oder
+Beispieldaten.
 
-## Schnellstart
+- **Kein Player:** Nichts wird in der App abgespielt. Weiterleitung zum Anbieter nur über echte Links aus der API.
+- **Privat:** Keine Konten, Zahlungen, Werbung oder Tracker. Dienste, Merkliste, Gesehen-Status und Interessen liegen
+  nur lokal auf dem Gerät (`localStorage`). Keine Cloud-Synchronisierung in Version 1.
+- **Echte Quellen:** TMDb (Titel, Bilder, Verfügbarkeit), OMDb (IMDb-Bewertung anhand der TMDb-IMDb-ID), JustWatch-Daten
+  über TMDb. TMDb-Bewertungen werden immer als „TMDb“, IMDb-Werte immer als „IMDb“ beschriftet.
+
+## Voraussetzungen
+
+- Node.js 18+
+- Für echte Daten: TMDb-Schlüssel (Pflicht), OMDb-Schlüssel (optional, für IMDb-Bewertungen)
+
+## API-Schlüssel einrichten (lokal, privat)
+
+Schlüssel **niemals** in den Chat, in Prompts oder in Git schreiben.
+
+1. `.env.example` nach `.env.local` kopieren.
+2. `TMDB_API_KEY` eintragen (https://www.themoviedb.org/settings/api).
+3. Optional `OMDB_API_KEY` eintragen (https://www.omdbapi.com/apikey.aspx) – ohne ihn entfällt nur die IMDb-Anzeige.
+4. Server neu starten.
+
+`.env.local` steht in `.gitignore` und wird nie committet. Ohne `TMDB_API_KEY` zeigt die App eine
+Einrichtungsmeldung und **keine Titel** (kein Demo-Feed). Die lokal gespeicherte Liste bleibt trotzdem sichtbar.
+
+## Starten
 
 ```bash
 npm install
-npm run dev -- -p 3100
-# Browser: http://localhost:3100
-```
-
-Tests / Typen / Build:
-
-```bash
-npm test
-npx tsc --noEmit
+npm run dev        # http://localhost:3000 (TV-Layout: /tv)
 npm run build
-npm run start -- -p 3100
+npm start -- -p 3100
+npm run typecheck  # Typprüfung
+npm test           # Logik-Tests (Provider-Filter, Merklisten-Migration, Empfehlungen)
 ```
 
-Android (Capacitor, statischer Export nach `out-next/`):
+## Feed & Personalisierung
+
+- **Start:** Hero-Empfehlung (echtes Backdrop), „Für meinen Haushalt“ (TMDb-Discover, auf Haushalts-Anbieter gefiltert,
+  nur echte Provider-IDs), „Für dich“ (lokal berechnete Empfehlungen mit Begründung, z. B. „Weil du dich für Thriller
+  interessierst“), „Im Trend“, Merkliste, „Überrasch mich“ (nur echte verfügbare Treffer).
+- **Detail & Karten:** Merken, Gesehen, „Interessiert mich“ (stärkt ähnliche Genres), „Nicht interessiert“
+  (blendet aus, jederzeit rückgängig). Gesehene Titel erscheinen nicht mehr als Empfehlung.
+- **Gesehen-Status (Film & Serie):** Auf Karten und Detailseiten gibt es „Als gesehen markieren“ mit Häkchen und Gesehen-Badge – jederzeit per „Als ungesehen markieren“ rückgängig. Serien lassen sich zusätzlich pro Staffel oder Episode markieren (echte TMDb-Episodendaten, Staffelwahl per Pills): „Alle Episoden als gesehen markieren“ kennzeichnet die Serie als gesehen, „Als ungesehen markieren“ setzt Serie und alle Episoden nachvollziehbar zurück. Teilweise gesehene Serien erscheinen in „Weiterschauen“ mit der nächsten offenen Episode. Der Fortschritt wird nur lokal gespeichert – die App erkennt nicht, was beim Anbieter tatsächlich angesehen wurde.
+- **Suche:** Filter für Film/Serie, Genre, Jahr, Anbieter, „Auf meinen Diensten“, Gesehen-Status (Alle/Nur ungesehene/Nur gesehene), „Nur inklusive“
+  (Abo/kostenlos/Werbung, ohne Zusatzkosten pro Titel) und Mindest-IMDb-Bewertung. IMDb-Werte werden pro Titel
+  gecacht (höchstens 1×/Tag neu abgerufen).
+- **Einstellungen:** Region DE, Schlüssel-Status, Zurücksetzen lokaler Interessen.
+
+## PWA / Offline
+
+- Manifest (`display: "standalone"`), Icons, Service Worker für App-Shell.
+- Gespeicherte Liste ist offline sichtbar; Suche, Bilder und aktuelle Verfügbarkeit brauchen Internet. Die App weist
+  darauf hin, dass Offline-Daten veraltet sein können.
+
+## Android-APK & Fire TV (Capacitor)
+
+Die Web-App ist die einzige Codebasis; für Fire TV wird sie per Capacitor als Hülle (WebView) verpackt – kein
+Rewrite, keine Google-Play-Services nötig (einziges natives Plugin: `@capacitor/browser`).
+
+TV-Layout `/tv`: Querformat, große Schrift, Overscan-Abstand, horizontale Reihen, starker Fokus-Rahmen, Karten
+vergrößern sich bei Fokus. Vollständig mit der Fire-TV-Fernbedienung bedienbar (Pfeiltasten = geometrische
+Fokusbewegung in `lib/tv-focus.ts`, OK = wählen, Zurück = Dialog schließen). Suche nutzt die Bildschirmtastatur.
+In der APK ohne Touchscreen startet die App automatisch auf `/tv`.
+
+**Backend für die APK:** Die APK enthält keinen Server. Für echte Daten ein öffentlich erreichbares HTTPS-Backend
+(diese App selbst gehostet) und beim Build `NEXT_PUBLIC_API_BASE` setzen. **Achtung: Schlüssel bzw. Backend-URLs
+können aus einer APK ausgelesen werden – APK nicht öffentlich verteilen.**
 
 ```bash
-npm run build:android
+npm run build:android   # statischer Export nach out/ (API-Routen bleiben auf dem Backend)
 npx cap sync android
 ```
 
-> `postbuild:android` baut danach automatisch wieder den Server-Build (`.next`).
+### APK bauen (Build-Rechner)
 
-## Echte Daten (keine Demo-Inhalte)
+Benötigt: **JDK 17**, Android SDK (Platform, Build-Tools, Platform-Tools/`adb`), `ANDROID_HOME`, SDK-Lizenzen.
+**Stand auf diesem Rechner (geprüft): JDK 25, kein Android SDK, kein `adb` – daher wurde hier kein APK gebaut.**
+Sobald die Umgebung steht:
 
-Ohne `.env.local` mit `TMDB_API_KEY` zeigen Routen Setup-Hinweise und 503-JSON:
+```bash
+cd android
+.\gradlew assembleDebug   # Windows (macOS/Linux: ./gradlew assembleDebug)
+# Ergebnis: android/app/build/outputs/apk/debug/app-debug.apk
+```
 
-- Lege `.env.local` an (siehe `.env.example`).
-- TMDb-Bilder, Bewertungen (TMDb ★), Verfügbarkeit (TMDb watch/providers) und Episoden sind echt.
-- Es werden keine Titel, Episoden oder Bewertungen erfunden.
+### Auf Fire TV installieren (Sideloading)
 
-## Gesehen-Status (Neu)
+1. Fire TV: Einstellungen → Mein Fire TV → Entwickleroptionen → ADB-Debugging an; IP unter Info → Netzwerk notieren.
+2. `adb connect <fire-tv-ip>:5555`, dann `adb install -r <apk-datei>`.
+3. Öffnen unter Einstellungen → Anwendungen → Installierte Apps verwalten.
 
-- Auf Filmkarten und Detailseiten: **„Als gesehen markieren“** → danach ✓ **„Gesehen“**, jederzeit **„Als ungesehen markieren“**.
-- Serien zusätzlich: einzelne Episoden toggeln, **„Staffel als gesehen“**, **„Alle Episoden als gesehen markieren“** (markiert die Serie als gesehen), **„Serie zurücksetzen“** als nachvollziehbares Undo.
-- **Weiterschauen** (Start + Serien-Seite): teilweise gesehene Serien mit nächster noch nicht markierter Episode. Manuelle Markierung – die App erkennt keinen echten Wiedergabefortschritt beim Anbieter.
-- Filter in Suche/Serien: **Alle / Nur gesehene / Noch nicht gesehen**.
-- **„Für dich“** blendet gesehene Filme und vollständig gesehene Serien aus; teilweise gesehene bleiben in Weiterschauen.
-- Speicherung lokal pro Haushaltsprofil, Schlüssel `sf:prefs:v2`, bleibt nach Neustart erhalten.
-- Alle Aktionen haben `data-tv`-Fokus für die Fire-TV-Fernbedienung (Pfeiltasten + OK).
+> Ein Android-APK läuft nur auf kompatiblen **Fire-OS-Geräten** und **nicht auf Vega OS**. Es gab hier **keinen Test
+> auf einem echten Fire-TV-Gerät oder Emulator** – das TV-Layout wurde nur mit Tastatur im Desktop-Browser geprüft.
 
-## TMDb-Titel-IDs
+## Tests
 
-- Filme: `tmdb-movie-<id>`, Serien: `tmdb-tv-<id>`
-- Serien-Episoden: `app/api/tv/[tmdbId]/season/[n]` (echte TMDb-Daten, API-Schlüssel bleibt serverseitig).
+`npm test` (Node-Testrunner, keine Zusatzabhängigkeit): Provider-Filter (`isOnMyServices`), Suchfilter
+(`applySearchFilters`), Empfehlungslogik (`scoreTitles`, `genreWeights`) und Legacy-Migration (`migrateLegacy`).
+
+## Bewusst nicht enthalten (V1)
+
+Keine Nutzerkonten, Zahlungen, Werbung, Tracker, Videowiedergabe, Anbieter-Logins, Scraping, inoffizielle
+Streaming-APIs, erfundene Links/Bewertungen/Bilder oder Geräte-Synchronisierung.

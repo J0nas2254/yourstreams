@@ -1,135 +1,295 @@
 "use client";
 
-import { useState } from "react";
-import { TitleCard } from "@/components/title-card";
-import { usePrefs } from "@/lib/use-prefs";
-import { applySeenFilter } from "@/lib/prefs";
-import type { SeenFilter, Title } from "@/lib/types";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import type { Genre, Title } from "@/lib/types";
+import { ApiError, apiGenres, apiImdbRating, apiProviders, apiSearch } from "@/lib/api.ts";
+import { isOnMyServices, usePrefs } from "@/lib/store";
+import { applySearchFilters } from "@/lib/prefs.ts";
+import { ProviderBadge } from "@/components/badges";
+import PosterCard from "@/components/poster-card";
+import SetupNotice from "@/components/setup-notice";
 
-export default function SuchePage() {
-  const { prefs, toggleSeen } = usePrefs();
-  const [query, setQuery] = useState("");
-  const [kind, setKind] = useState<"all" | "movie" | "tv">("all");
-  const [provider, setProvider] = useState("all");
-  const [seenFilter, setSeenFilter] = useState<SeenFilter>("all");
+function SucheInner() {
+  const params = useSearchParams();
+  const initialQ = params.get("q") ?? "";
+  const [q, setQ] = useState(initialQ);
   const [results, setResults] = useState<Title[]>([]);
-  const [note, setNote] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState<"idle" | "loading" | "ok" | "setup" | "error">("idle");
+  const [errorMsg, setErrorMsg] = useState("");
+  const [onlyMine, setOnlyMine] = useState(false);
+  const [mediaType, setMediaType] = useState<"all" | "movie" | "tv">("all");
+  const [genre, setGenre] = useState("");
+  const [yearFrom, setYearFrom] = useState("");
+  const [yearTo, setYearTo] = useState("");
+  const [providerId, setProviderId] = useState("");
+  const [includedOnly, setIncludedOnly] = useState(false);
+  const [minImdb, setMinImdb] = useState("");
+  const [seenFilter, setSeenFilter] = useState<"all" | "unseen" | "seen">("unseen");
+  const [genres, setGenres] = useState<Genre[]>([]);
+  const [providers, setProviders] = useState<{ provider_id: number; provider_name: string }[]>([]);
+  const [imdbById, setImdbById] = useState<Map<string, number | null>>(new Map());
+  const { prefs, loaded } = usePrefs();
 
-  async function search(e?: React.FormEvent) {
-    e?.preventDefault();
-    setLoading(true);
-    setNote(null);
-    try {
-      const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
-      if (!res.ok) {
-        const j = await res.json().catch(() => ({}));
-        setResults([]);
-        setNote(j.hint ?? "Suche fehlgeschlagen. Echte Daten erfordern TMDB_API_KEY.");
-        return;
-      }
-      const data: Title[] = await res.json();
-      setResults(data);
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    apiGenres()
+      .then((g) => {
+        const all = [...g.movie, ...g.tv];
+        const seen = new Map(all.map((x) => [x.name, x]));
+        setGenres([...seen.values()].sort((a, b) => a.name.localeCompare(b.name, "de")));
+      })
+      .catch(() => {});
+    apiProviders()
+      .then(setProviders)
+      .catch(() => {});
+  }, []);
+
+  const run = useCallback(async (query: string) => {
+    const trimmed = query.trim();
+    if (!trimmed) {
+      setResults([]);
+      setStatus("idle");
+      return;
     }
-  }
+    setStatus("loading");
+    try {
+      const r = await apiSearch(trimmed);
+      setResults(r);
+      setStatus("ok");
+    } catch (e) {
+      if (e instanceof ApiError && e.notConfigured) setStatus("setup");
+      else {
+        setStatus("error");
+        setErrorMsg(e instanceof Error ? e.message : "Suche fehlgeschlagen.");
+      }
+      setResults([]);
+    }
+  }, []);
 
-  let filtered = results.filter((t) =>
-    kind === "all" ? true : t.kind === kind
+  useEffect(() => {
+    if (initialQ) run(initialQ);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialQ]);
+
+  // IMDb-Bewertungen für sichtbare Treffer nachladen (gecacht, max. 1×/Tag pro Titel)
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      const withId = results.filter((t) => t.imdbId);
+      if (withId.length === 0) return;
+      const entries = await Promise.all(
+        withId.slice(0, 12).map(async (t) => {
+          try {
+            const r = await apiImdbRating(t.imdbId as string);
+            return [t.id, r.rating] as [string, number | null];
+          } catch {
+            return [t.id, null] as [string, number | null];
+          }
+        })
+      );
+      if (!cancelled) setImdbById(new Map(entries));
+    }
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [results]);
+
+  // Detail-IDs (für IMDb-Filter) bei Bedarf nachladen
+  useEffect(() => {
+    let cancelled = false;
+    async function enrich() {
+      const missing = results.filter((t) => !t.imdbId);
+      if (missing.length === 0) return;
+      const { apiTitle } = await import("@/lib/api.ts");
+      const full = await Promise.all(
+        missing.slice(0, 12).map(async (t) => {
+          try {
+            return await apiTitle(t.id);
+          } catch {
+            return t;
+          }
+        })
+      );
+      if (cancelled) return;
+      setResults((prev) => {
+        const map = new Map(full.map((f) => [f.id, f]));
+        return prev.map((p) => map.get(p.id) ?? p);
+      });
+    }
+    enrich();
+    return () => {
+      cancelled = true;
+    };
+  }, [results.length]);
+
+  const filtered = useMemo(
+    () =>
+      applySearchFilters(results, {
+        onlyMine,
+        services: prefs.services,
+        mediaType,
+        genre: genre || undefined,
+        yearFrom: yearFrom ? Number(yearFrom) : null,
+        yearTo: yearTo ? Number(yearTo) : null,
+        providerId: providerId ? Number(providerId) : null,
+        includedOnly,
+        minImdb: minImdb ? Number(minImdb) : null,
+        imdbById,
+        seenFilter,
+        seenIds: new Set(prefs.seen)
+      }),
+    [results, onlyMine, prefs.services, prefs.seen, mediaType, genre, yearFrom, yearTo, providerId, includedOnly, minImdb, imdbById, seenFilter]
   );
-  if (provider !== "all") {
-    filtered = filtered.filter((t) => t.providers?.includes(provider));
-  }
-  filtered = applySeenFilter(filtered, prefs, seenFilter);
 
-  const providers = Array.from(new Set(results.flatMap((t) => t.providers ?? [])));
+  const onMineIds = useMemo(
+    () =>
+      new Set(
+        filtered
+          .filter((t) => isOnMyServices(t.availability.map((a) => a.provider_id), prefs.services))
+          .map((t) => t.id)
+      ),
+    [filtered, prefs.services]
+  );
+
+  const inputCls =
+    "rounded-xl border border-white/15 bg-ink-950 px-3 py-2 text-sm text-white placeholder:text-slate-500";
+  const labelCls = "flex flex-col gap-1 text-xs font-bold text-slate-300";
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold">Suche</h1>
-      <form onSubmit={search} className="mt-3 flex flex-wrap gap-2">
+    <div className="space-y-4">
+      <h1 className="text-2xl font-black text-white">Suche</h1>
+      <form
+        role="search"
+        aria-label="Titel suchen"
+        className="flex flex-col gap-2 sm:flex-row"
+        onSubmit={(e) => {
+          e.preventDefault();
+          run(q);
+        }}
+      >
+        <label htmlFor="suche-input" className="sr-only">
+          Film oder Serie suchen
+        </label>
         <input
-          data-tv
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Film oder Serie suchen (echte Daten)"
-          aria-label="Suche"
-          className="min-w-0 flex-1 rounded-lg bg-neutral-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-400"
+          id="suche-input"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Titel eingeben …"
+          className="w-full flex-1 rounded-2xl border border-white/15 bg-ink-950 px-4 py-3 text-white placeholder:text-slate-500"
         />
-        <button
-          type="submit"
-          data-tv
-          className="rounded-lg bg-green-600 px-4 py-2 font-semibold focus:outline-none focus:ring-2 focus:ring-green-400"
-        >
+        <button type="submit" className="rounded-2xl bg-white px-6 py-3 font-extrabold text-slate-900">
           Suchen
         </button>
       </form>
 
-      <div className="mt-3 flex flex-wrap gap-2 text-sm">
-        <label className="flex items-center gap-1">
-          Typ:
-          <select
-            data-tv
-            value={kind}
-            onChange={(e) => setKind(e.target.value as typeof kind)}
-            className="rounded bg-neutral-900 px-2 py-1"
-          >
-            <option value="all">Filme + Serien</option>
+      <fieldset className="grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-ink-800/60 p-3 sm:grid-cols-4">
+        <legend className="px-1 text-xs font-bold text-slate-400">Filter</legend>
+        <label className={labelCls}>
+          Art
+          <select value={mediaType} onChange={(e) => setMediaType(e.target.value as typeof mediaType)} className={inputCls}>
+            <option value="all">Filme & Serien</option>
             <option value="movie">Nur Filme</option>
             <option value="tv">Nur Serien</option>
           </select>
         </label>
-        <label className="flex items-center gap-1">
-          Anbieter:
-          <select
-            data-tv
-            value={provider}
-            onChange={(e) => setProvider(e.target.value)}
-            className="rounded bg-neutral-900 px-2 py-1"
-          >
-            <option value="all">Alle</option>
-            {providers.map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
+        <label className={labelCls}>
+          Genre
+          <select value={genre} onChange={(e) => setGenre(e.target.value)} className={inputCls}>
+            <option value="">Alle Genres</option>
+            {genres.map((g) => (
+              <option key={g.name} value={g.name}>{g.name}</option>
             ))}
           </select>
         </label>
-        <label className="flex items-center gap-1">
-          Gesehen:
-          <select
-            data-tv
-            value={seenFilter}
-            onChange={(e) => setSeenFilter(e.target.value as SeenFilter)}
-            className="rounded bg-neutral-900 px-2 py-1"
-          >
-            <option value="all">Alle</option>
-            <option value="seen">Nur gesehene</option>
-            <option value="unseen">Noch nicht gesehen</option>
+        <label className={labelCls}>
+          Jahr von
+          <input value={yearFrom} onChange={(e) => setYearFrom(e.target.value)} inputMode="numeric" placeholder="z. B. 2015" className={inputCls} />
+        </label>
+        <label className={labelCls}>
+          Jahr bis
+          <input value={yearTo} onChange={(e) => setYearTo(e.target.value)} inputMode="numeric" placeholder="z. B. 2024" className={inputCls} />
+        </label>
+        <label className={labelCls}>
+          Anbieter
+          <select value={providerId} onChange={(e) => setProviderId(e.target.value)} className={inputCls}>
+            <option value="">Alle Anbieter</option>
+            {providers.map((p) => (
+              <option key={p.provider_id} value={p.provider_id}>{p.provider_name}</option>
+            ))}
           </select>
         </label>
-      </div>
+        <label className={labelCls}>
+          Gesehen-Status
+          <select value={seenFilter} onChange={(e) => setSeenFilter(e.target.value as typeof seenFilter)} className={inputCls}>
+            <option value="unseen">Nur ungesehene</option>
+            <option value="all">Alle</option>
+            <option value="seen">Nur gesehene</option>
+          </select>
+        </label>
+        <label className={labelCls}>
+          Mindest-IMDb
+          <select value={minImdb} onChange={(e) => setMinImdb(e.target.value)} className={inputCls}>
+            <option value="">Egal</option>
+            <option value="6">★ 6+</option>
+            <option value="7">★ 7+</option>
+            <option value="8">★ 8+</option>
+          </select>
+        </label>
+        <label className="flex items-center gap-2 text-sm font-bold text-slate-200">
+          <input type="checkbox" checked={onlyMine} onChange={(e) => setOnlyMine(e.target.checked)} className="h-5 w-5 accent-emerald-400" />
+          Auf meinen Diensten
+        </label>
+        <label className="flex items-center gap-2 text-sm font-bold text-slate-200" title="Nur Titel, die ohne zusätzliche Zahlung pro Titel verfügbar sind (Abo, kostenlos, werbefinanziert)">
+          <input type="checkbox" checked={includedOnly} onChange={(e) => setIncludedOnly(e.target.checked)} className="h-5 w-5 accent-emerald-400" />
+          Nur inklusive
+        </label>
+      </fieldset>
 
-      {loading && <p className="mt-3 text-sm">Suche läuft (echte TMDb-Daten) …</p>}
-      {note && (
-        <p role="status" className="mt-3 rounded-lg bg-neutral-900 p-3 text-sm text-amber-300">
-          {note}
+      {status === "loading" && <p aria-live="polite" className="text-slate-300">Suche läuft …</p>}
+      {status === "setup" && (
+        <SetupNotice
+          title="Suche nicht möglich"
+          message="Die TMDb-API ist nicht konfiguriert (TMDB_API_KEY fehlt). Es werden keine Beispieltitel angezeigt."
+        />
+      )}
+      {status === "error" && <SetupNotice title="Suche fehlgeschlagen" message={errorMsg} showSettingsLink={false} />}
+
+      {status === "ok" && (
+        <p aria-live="polite" className="text-sm text-slate-400">
+          {filtered.length === 0
+            ? "Keine Ergebnisse – passe Suche oder Filter an."
+            : `${filtered.length} Ergebnis(se).`}
         </p>
       )}
 
-      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-        {filtered.map((t) => (
-          <TitleCard
-            key={t.id}
-            title={t}
-            seen={prefs.seenIds.includes(t.id)}
-            onToggleSeen={() =>
-              toggleSeen(t)
-            }
-          />
-        ))}
-      </div>
+      {status === "ok" && filtered.length > 0 && (
+        <ul className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6" aria-label="Suchergebnisse">
+          {filtered.map((t) => (
+            <li key={t.id}>
+              <PosterCard title={t} onMyServices={onMineIds.has(t.id)} seen={prefs.seen.includes(t.id)} />
+              {t.imdbId && typeof imdbById.get(t.id) === "number" && (
+                <p className="mt-1 px-0.5 text-[11px] text-gold-300">IMDb ★ {(imdbById.get(t.id) as number).toFixed(1)}</p>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {status === "ok" && filtered.length > 0 && (
+        <div className="flex flex-wrap gap-1.5" aria-label="Anbieter-Legende">
+          {[...new Set(filtered.flatMap((t) => t.availability.map((a) => a.provider_name)))].slice(0, 12).map((n) => (
+            <ProviderBadge key={n} name={n} />
+          ))}
+        </div>
+      )}
     </div>
+  );
+}
+
+export default function SuchePage() {
+  return (
+    <Suspense fallback={<p className="text-slate-300">Suche wird geladen …</p>}>
+      <SucheInner />
+    </Suspense>
   );
 }
