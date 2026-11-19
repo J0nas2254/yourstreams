@@ -138,54 +138,64 @@ export async function tmdbTrending(overrideKey?: string): Promise<Title[]> {
   return enrichWithProviders(items, 12, overrideKey);
 }
 
-export async function tmdbDiscoverByProviders(providerIds: number[], overrideKey?: string): Promise<Title[]> {
+export interface DiscoverOptions {
+  genreId?: number | null;
+  yearFrom?: number | null;
+  yearTo?: number | null;
+  mediaType?: "movie" | "tv" | "all";
+}
+
+export async function tmdbDiscoverByProviders(
+  providerIds: number[],
+  overrideKey?: string,
+  opts?: DiscoverOptions
+): Promise<Title[]> {
   // Virtuelle Free-TV-ID (-1) vor TMDb-Aufruf entfernen; reine Free-Auswahl
   // bedeutet: freie / werbefinanzierte Titel ohne Provider-Einschränkung.
   const realIds = providerIds.filter((n) => Number.isFinite(n) && n > 0);
   const freeOnly = realIds.length === 0 && providerIds.includes(-1);
-  if (realIds.length === 0 && !freeOnly) return [];
-  if (freeOnly) {
-    const [movies, tv] = await Promise.all([
-      tmdb("/discover/movie", {
-        watch_region: "DE",
-        with_watch_monetization_types: "free|ads",
-        sort_by: "popularity.desc",
-        page: "1",
-        include_adult: "false"
-      }, overrideKey).catch(() => null),
-      tmdb("/discover/tv", {
-        watch_region: "DE",
-        with_watch_monetization_types: "free|ads",
-        sort_by: "popularity.desc",
-        page: "1",
-        include_adult: "false"
-      }, overrideKey).catch(() => null)
-    ]);
-    const items = [
-      ...((movies?.results ?? []).map((r: any) => ({ ...r, media_type: "movie" }))),
-      ...((tv?.results ?? []).map((r: any) => ({ ...r, media_type: "tv" })))
-    ];
-    items.sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0));
-    return enrichWithProviders(items, 12, overrideKey);
+  const mediaType = opts?.mediaType ?? "all";
+  const wantMovie = mediaType === "all" || mediaType === "movie";
+  const wantTv = mediaType === "all" || mediaType === "tv";
+  const monetization = freeOnly ? "free|ads" : "flatrate|free|ads";
+  const genreParam =
+    typeof opts?.genreId === "number" && Number.isFinite(opts.genreId) ? String(opts.genreId) : undefined;
+  const fromParam =
+    typeof opts?.yearFrom === "number" && Number.isFinite(opts.yearFrom)
+      ? `${opts.yearFrom}-01-01`
+      : undefined;
+  const toParam =
+    typeof opts?.yearTo === "number" && Number.isFinite(opts.yearTo)
+      ? `${opts.yearTo}-12-31`
+      : undefined;
+  const movieParams: Record<string, string> = {
+    watch_region: "DE",
+    with_watch_monetization_types: monetization,
+    sort_by: "popularity.desc",
+    page: "1",
+    include_adult: "false"
+  };
+  const tvParams: Record<string, string> = { ...movieParams };
+  if (realIds.length > 0) {
+    const joined = realIds.join("|");
+    movieParams.with_watch_providers = joined;
+    tvParams.with_watch_providers = joined;
   }
-  const joined = realIds.join("|");
+  if (genreParam) {
+    movieParams.with_genres = genreParam;
+    tvParams.with_genres = genreParam;
+  }
+  if (fromParam) {
+    movieParams["primary_release_date.gte"] = fromParam;
+    tvParams["first_air_date.gte"] = fromParam;
+  }
+  if (toParam) {
+    movieParams["primary_release_date.lte"] = toParam;
+    tvParams["first_air_date.lte"] = toParam;
+  }
   const [movies, tv] = await Promise.all([
-    tmdb("/discover/movie", {
-      watch_region: "DE",
-      with_watch_providers: joined,
-      with_watch_monetization_types: "flatrate|free|ads",
-      sort_by: "popularity.desc",
-      page: "1",
-      include_adult: "false"
-    }, overrideKey).catch(() => null),
-    tmdb("/discover/tv", {
-      watch_region: "DE",
-      with_watch_providers: joined,
-      with_watch_monetization_types: "flatrate|free|ads",
-      sort_by: "popularity.desc",
-      page: "1",
-      include_adult: "false"
-    }, overrideKey).catch(() => null)
+    wantMovie ? tmdb("/discover/movie", movieParams, overrideKey).catch(() => null) : Promise.resolve(null),
+    wantTv ? tmdb("/discover/tv", tvParams, overrideKey).catch(() => null) : Promise.resolve(null)
   ]);
   const items = [
     ...((movies?.results ?? []).map((r: any) => ({ ...r, media_type: "movie" }))),

@@ -94,9 +94,17 @@ export async function apiTrending(): Promise<Title[]> {
   return d.results ?? [];
 }
 
-export async function apiDiscover(providerIds: number[]): Promise<Title[]> {
-  if (providerIds.length === 0) return [];
-  const d = await getJSON<{ results: Title[] }>(`/api/discover?providers=${providerIds.join(",")}`);
+export async function apiDiscover(
+  providerIds: number[],
+  opts?: { genreId?: number | null; yearFrom?: number | null; yearTo?: number | null; mediaType?: string }
+): Promise<Title[]> {
+  const p = new URLSearchParams();
+  p.set("providers", providerIds.join(","));
+  if (opts?.genreId) p.set("genreId", String(opts.genreId));
+  if (opts?.yearFrom) p.set("yearFrom", String(opts.yearFrom));
+  if (opts?.yearTo) p.set("yearTo", String(opts.yearTo));
+  if (opts?.mediaType && opts.mediaType !== "all") p.set("mediaType", opts.mediaType);
+  const d = await getJSON<{ results: Title[] }>(`/api/discover?${p.toString()}`);
   return d.results ?? [];
 }
 

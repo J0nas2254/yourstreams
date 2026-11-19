@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { hasTmdbKey, tmdbDiscoverByProviders, tmdbKeyFromRequest } from "@/lib/tmdb";
 
-// Titel, die bei den übergebenen Haushalts-Anbietern (DE, inklusive-Kategorien) verfügbar sind.
+// Stöbern ohne Titelsuche: Haushalts-Anbieter (DE, inklusive-Kategorien)
+// plus optionale Filter für Art, Genre-ID und Zeitraum.
 export async function GET(req: Request) {
   const localKey = tmdbKeyFromRequest(req);
   if (!hasTmdbKey(localKey)) {
@@ -16,9 +17,18 @@ export async function GET(req: Request) {
     .map((s) => Number(s.trim()))
     .filter((n) => Number.isFinite(n) && (n > 0 || n === -1))
     .slice(0, 20);
-  if (ids.length === 0) return NextResponse.json({ configured: true, results: [] });
+  const num = (v: string | null) => {
+    if (v === null || v === "") return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  };
+  const mediaRaw = url.searchParams.get("mediaType");
+  const mediaType = mediaRaw === "movie" || mediaRaw === "tv" ? mediaRaw : "all";
+  const genreId = num(url.searchParams.get("genreId"));
+  const yearFrom = num(url.searchParams.get("yearFrom"));
+  const yearTo = num(url.searchParams.get("yearTo"));
   try {
-    const results = await tmdbDiscoverByProviders(ids, localKey);
+    const results = await tmdbDiscoverByProviders(ids, localKey, { genreId, yearFrom, yearTo, mediaType });
     return NextResponse.json({ configured: true, results });
   } catch {
     return NextResponse.json(

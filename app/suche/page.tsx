@@ -1,9 +1,9 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import type { Genre, Title } from "@/lib/types";
-import { ApiError, apiGenres, apiImdbRating, apiProviders, apiSearch } from "@/lib/api.ts";
+import { ApiError, apiDiscover, apiGenres, apiImdbRating, apiProviders, apiSearch } from "@/lib/api.ts";
 import { isOnMyServicesEntries, usePrefs } from "@/lib/store";
 import { applySearchFilters } from "@/lib/prefs.ts";
 import { ProviderBadge } from "@/components/badges";
@@ -13,9 +13,11 @@ import SetupNotice from "@/components/setup-notice";
 
 function SucheInner() {
   const params = useSearchParams();
+  const router = useRouter();
   const initialQ = params.get("q") ?? "";
   const [q, setQ] = useState(initialQ);
   const [results, setResults] = useState<Title[]>([]);
+  const [mode, setMode] = useState<"titel" | "browse">("titel");
   const [status, setStatus] = useState<"idle" | "loading" | "ok" | "setup" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
   const [onlyMine, setOnlyMine] = useState(false);
@@ -28,6 +30,7 @@ function SucheInner() {
   const [minImdb, setMinImdb] = useState("");
   const [seenFilter, setSeenFilter] = useState<"all" | "unseen" | "seen">("unseen");
   const [genres, setGenres] = useState<Genre[]>([]);
+  const [genresTv, setGenresTv] = useState<Genre[]>([]);
   const [providers, setProviders] = useState<{ provider_id: number; provider_name: string }[]>([]);
   const [imdbById, setImdbById] = useState<Map<string, number | null>>(new Map());
   const { prefs, loaded } = usePrefs();
@@ -38,6 +41,7 @@ function SucheInner() {
         const all = [...g.movie, ...g.tv];
         const seen = new Map(all.map((x) => [x.name, x]));
         setGenres([...seen.values()].sort((a, b) => a.name.localeCompare(b.name, "de")));
+        setGenresTv(g.tv);
       })
       .catch(() => {});
     apiProviders()
@@ -45,27 +49,64 @@ function SucheInner() {
       .catch(() => {});
   }, []);
 
-  const run = useCallback(async (query: string) => {
-    const trimmed = query.trim();
-    if (!trimmed) {
-      setResults([]);
-      setStatus("idle");
-      return;
-    }
+  function genreIdFor(name: string): number | null {
+    if (!name) return null;
+    const all = [...genres, ...genresTv];
+    return all.find((g) => g.name === name)?.id ?? null;
+  }
+
+  const runBrowse = useCallback(async () => {
     setStatus("loading");
+    setMode("browse");
     try {
-      const r = await apiSearch(trimmed);
+      const providersForBrowse = providerId
+        ? [Number(providerId)]
+        : onlyMine
+          ? prefs.services
+          : [];
+      const r = await apiDiscover(providersForBrowse, {
+        genreId: genreIdFor(genre),
+        yearFrom: yearFrom ? Number(yearFrom) : null,
+        yearTo: yearTo ? Number(yearTo) : null,
+        mediaType
+      });
       setResults(r);
       setStatus("ok");
     } catch (e) {
       if (e instanceof ApiError && e.notConfigured) setStatus("setup");
       else {
         setStatus("error");
-        setErrorMsg(e instanceof Error ? e.message : "Suche fehlgeschlagen.");
+        setErrorMsg(e instanceof Error ? e.message : "Stöbern fehlgeschlagen.");
       }
       setResults([]);
     }
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [providerId, onlyMine, prefs.services, genre, genres, genresTv, yearFrom, yearTo, mediaType]);
+
+  const run = useCallback(
+    async (query: string) => {
+      const trimmed = query.trim();
+      if (!trimmed) {
+        await runBrowse();
+        return;
+      }
+      setMode("titel");
+      setStatus("loading");
+      try {
+        const r = await apiSearch(trimmed);
+        setResults(r);
+        setStatus("ok");
+      } catch (e) {
+        if (e instanceof ApiError && e.notConfigured) setStatus("setup");
+        else {
+          setStatus("error");
+          setErrorMsg(e instanceof Error ? e.message : "Suche fehlgeschlagen.");
+        }
+        setResults([]);
+      }
+    },
+    [runBrowse]
+  );
 
   useEffect(() => {
     if (initialQ) run(initialQ);
@@ -153,16 +194,22 @@ function SucheInner() {
     [filtered, prefs.services]
   );
 
+  function surprise() {
+    if (filtered.length === 0) return;
+    const pick = filtered[Math.floor(Math.random() * filtered.length)];
+    router.push(`/titel?id=${encodeURIComponent(pick.id)}`);
+  }
+
   const inputCls =
     "rounded-xl border border-white/15 bg-ink-950 px-3 py-2 text-sm text-white placeholder:text-slate-500";
   const labelCls = "flex flex-col gap-1 text-xs font-bold text-slate-300";
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-black text-white">Suche</h1>
+      <h1 className="text-2xl font-black text-white">Suche & Stöbern</h1>
       <form
         role="search"
-        aria-label="Titel suchen"
+        aria-label="Titel suchen oder stöbern"
         className="flex flex-col gap-2 sm:flex-row"
         onSubmit={(e) => {
           e.preventDefault();
@@ -176,13 +223,24 @@ function SucheInner() {
           id="suche-input"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Titel eingeben …"
+          placeholder="Titel eingeben – oder leer lassen und nur Filter nutzen …"
           className="w-full flex-1 rounded-2xl border border-white/15 bg-ink-950 px-4 py-3 text-white placeholder:text-slate-500"
         />
         <button type="submit" className="rounded-2xl bg-white px-6 py-3 font-extrabold text-slate-900">
-          Suchen
+          {q.trim() ? "Suchen" : "Stöbern"}
+        </button>
+        <button
+          type="button"
+          onClick={runBrowse}
+          className="rounded-2xl border border-white/20 px-6 py-3 font-extrabold text-white"
+        >
+          Nur Filter
         </button>
       </form>
+      <p className="text-xs text-slate-400">
+        Kein Titel im Kopf? Filter setzen (z. B. Genre + Anbieter + Zeitraum) und auf „Stöbern“ oder „Nur
+        Filter“ tippen – die App schlägt passende Titel vor.
+      </p>
 
       <fieldset className="grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-ink-800/60 p-3 sm:grid-cols-4">
         <legend className="px-1 text-xs font-bold text-slate-400">Filter</legend>
@@ -248,7 +306,7 @@ function SucheInner() {
         </label>
       </fieldset>
 
-      {status === "loading" && <p aria-live="polite" className="text-slate-300">Suche läuft …</p>}
+      {status === "loading" && <p aria-live="polite" className="text-slate-300">{mode === "browse" ? "Stöbere …" : "Suche läuft …"}</p>}
       {status === "setup" && (
         <SetupNotice
           title="Suche nicht möglich"
@@ -258,11 +316,24 @@ function SucheInner() {
       {status === "error" && <SetupNotice title="Suche fehlgeschlagen" message={errorMsg} showSettingsLink={false} />}
 
       {status === "ok" && (
-        <p aria-live="polite" className="text-sm text-slate-400">
-          {filtered.length === 0
-            ? "Keine Ergebnisse – passe Suche oder Filter an."
-            : `${filtered.length} Ergebnis(se).`}
-        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <p aria-live="polite" className="text-sm text-slate-400">
+            {filtered.length === 0
+              ? "Keine Ergebnisse – passe Filter an (z. B. Zeitraum weiter fassen oder anderen Anbieter wählen)."
+              : mode === "browse"
+                ? `${filtered.length} Vorschlag/Vorschläge zum Stöbern.`
+                : `${filtered.length} Ergebnis(se).`}
+          </p>
+          {filtered.length > 0 && (
+            <button
+              type="button"
+              onClick={surprise}
+              className="rounded-full border border-gold-400/50 px-4 py-1.5 text-sm font-bold text-gold-300"
+            >
+              Überrasch mich
+            </button>
+          )}
+        </div>
       )}
 
       {status === "ok" && filtered.length > 0 && (
