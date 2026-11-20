@@ -25,11 +25,11 @@ Wichtig aus `README.md` / `.env.example`:
    npm -v
    ```
    `node -v` muss `v22.x` oder höher zeigen: `@capacitor/cli` 8 und `wrangler` 4 verlangen mindestens Node 22, mit Node 20 bricht `npx cap sync` ab.
-3. **JDK 17** (genau 17, kein 21 / 25 für diesen Build)
+3. **JDK 21** (genau 21, kein 17 / 25 für diesen Build – `@capacitor/android` 8 kompiliert mit Java 21)
    ```powershell
    java -version
    ```
-   Es muss `17.x` dastehen. Falls mehrere Java-Versionen da sind, `JAVA_HOME` auf JDK 17 zeigen lassen.
+   Es muss `21.x` dastehen. Falls mehrere Java-Versionen da sind, `JAVA_HOME` auf JDK 21 zeigen lassen.
 4. **Android SDK**: Am einfachsten **Android Studio** installieren, darin SDK Manager öffnen und installieren:
    - Android SDK Platform (API 33 oder neuer reicht zum Bauen)
    - Android SDK Build-Tools
@@ -127,7 +127,7 @@ Was passiert dabei (`scripts/build-android.mjs`, `next.config.js`):
 - Danach wird `app/api` wiederhergestellt und `.next`-Metadaten für `next start` repariert (`postbuild:android`)
 - `npx cap sync android` kopiert `out-next` in das Android-Projekt
 
-Falls `.\gradlew` meckert: JDK 17 prüfen, `ANDROID_HOME` prüfen, Android Studio einmal öffnen damit SDK-Pfade angelegt sind.
+Falls `.\gradlew` meckert: JDK 21 prüfen (`java -version` muss `21.x` zeigen, sonst `invalid source release: 21`), `ANDROID_HOME` prüfen, Android Studio einmal öffnen damit SDK-Pfade angelegt sind.
 
 ## 6. APK auf den Cube laden
 
@@ -164,7 +164,7 @@ Wenn nur die Einrichtungsmeldung kommt: Backend ist offline oder `NEXT_PUBLIC_AP
 
 - Leere Seite / keine Titel -> Backend offline, falsche `NEXT_PUBLIC_API_BASE`, oder Key fehlt / falsch
 - `adb connect` scheitert -> IP falsch, Cube nicht im gleichen WLAN, ADB-Debugging aus, Cube-Neustart nötig
-- `assembleDebug` scheitert -> fast immer JDK (muss 17 sein) oder SDK-Lizenzen / `ANDROID_HOME`
+- `assembleDebug` scheitert -> fast immer JDK (muss 21 sein, `invalid source release: 21` heißt: Gradle läuft noch mit JDK 17) oder SDK-Lizenzen / `ANDROID_HOME`
 - App da, aber winzig / abgeschnitten -> `/tv` öffnen, Overscan ist dort schon eingerechnet
 - Neue Fire TV Sticks mit Vega OS (Version beginnt mit 1/2, Namen mit SELECT / HD 2. Gen / 4K 3. Gen) können **kein** APK. Dein Cube 2. Gen mit Fire OS 7.6.9.7 ist davon **nicht** betroffen
 
