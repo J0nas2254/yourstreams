@@ -12,6 +12,7 @@ import { posterUrl } from "@/lib/images";
 import { AVAILABILITY_LABELS } from "@/lib/types";
 import { useTvFocus } from "@/lib/tv-focus";
 import ImdbBadge from "@/components/imdb-badge";
+import { BUILD_ID } from "@/lib/build";
 import TitleActions from "@/components/title-actions";
 import { FREE_TV_ID, FREE_TV_LABEL, filterFreeProviders } from "@/lib/free-tv";
 import ProviderGroupList from "@/components/provider-group-list";
@@ -1102,7 +1103,8 @@ export default function TvPage() {
       <footer className="mt-8 text-sm text-slate-400">
         <p>
           Daten: TMDb (nicht von TMDB zertifiziert) · Verfügbarkeiten u. a. von JustWatch · IMDb via OMDb ·
-          Region DE · Keine Wiedergabe in der App. Offline: gespeicherte Liste, sonst Internet nötig.
+          Region DE · Keine Wiedergabe in der App. Offline: gespeicherte Liste, sonst Internet nötig. ·
+          Build {BUILD_ID}
         </p>
       </footer>
 

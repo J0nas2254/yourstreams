@@ -7,6 +7,7 @@ import type { Genre, Title } from "@/lib/types";
 import { apiDiscover, apiGenres } from "@/lib/api.ts";
 import { usePrefs } from "@/lib/store";
 import { posterUrl } from "@/lib/images";
+import { BUILD_ID } from "@/lib/build";
 import "../tv.css";
 
 // Echte Unterseite für eine Auswahl: Genre (+ Filter) mit bis zu 220 Titeln.
@@ -59,6 +60,9 @@ function TopInner() {
   const [loading, setLoading] = useState(false);
   const [finished, setFinished] = useState(false);
   const [failed, setFailed] = useState(false);
+  // Einzeln fehlgeschlagene Discover-Seiten (Netz/Server) – statt stiller
+  // Kurz-Liste bekommt der User eine Meldung + Nachlade-Button.
+  const [failedPages, setFailedPages] = useState<number[]>([]);
 
   const busy = useRef(false);
   const titlesRef = useRef<Title[]>([]);
@@ -123,19 +127,26 @@ function TopInner() {
             mediaType: s.media,
             page: p
           }).then(
-            (r) => ({ page: p, results: r }),
-            () => ({ page: p, results: [] as Title[] })
+            (r) => ({ page: p, results: r, ok: true as const }),
+            () => ({ page: p, results: [] as Title[], ok: false as const })
           )
         )
       );
       batches.sort((a, b) => a.page - b.page);
-      for (const { page, results } of batches) {
+      const failedNow: number[] = [];
+      for (const { page, results, ok } of batches) {
         last = page;
+        if (!ok) {
+          failedNow.push(page);
+          continue;
+        }
         // TMDb-Seiten sind fortlaufend: eine leere Seite heißt Ende aller Seiten.
         if (results.length === 0) reachedEnd = true;
         for (const t of results) if (!map.has(t.id)) map.set(t.id, t);
         if (map.size >= MAX_TITLES) break;
       }
+      // Geladene Seiten von der Fehlerliste streichen, neu fehlgeschlagene dazu.
+      setFailedPages((prev) => [...prev.filter((p) => !pagesToLoad.includes(p)), ...failedNow]);
       let list = [...map.values()].slice(0, MAX_TITLES);
       if (s.included) list = includedOnly(list);
       titlesRef.current = list;
@@ -157,6 +168,7 @@ function TopInner() {
     titlesRef.current = [];
     setPages(0);
     setFinished(false);
+    setFailedPages([]);
     void runLoad(s, 1, PAGES_PER_LOAD, []);
   }
 
@@ -173,6 +185,13 @@ function TopInner() {
     void runLoad(snap, pages + 1, PAGES_PER_LOAD, titlesRef.current);
   }
 
+  function retryFailed() {
+    if (!snap || loading || failedPages.length === 0) return;
+    const from = Math.min(...failedPages);
+    const count = Math.max(...failedPages) - from + 1;
+    void runLoad(snap, from, count, titlesRef.current);
+  }
+
   const options = media === "tv" ? tvG : media === "movie" ? movieG : mergedG;
   const optionNames = options.map((g) => g.name);
   const shownGenre = genre || "Alle Genres";
@@ -186,7 +205,7 @@ function TopInner() {
           </Link>
           <h1 className="tv-top-title">Top 220 · {shownGenre}</h1>
           <span className="tv-top-count" aria-live="polite">
-            {loading && titles.length === 0 ? "Lädt …" : `${titles.length} Titel`}
+            {loading && titles.length === 0 ? "Lädt …" : `${titles.length} Titel`} · Build {BUILD_ID}
           </span>
         </div>
 
@@ -280,6 +299,21 @@ function TopInner() {
             Einfache Ansicht (statische Top-220-Liste)
           </Link>
         </div>
+        {failedPages.length > 0 && (
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <p className="text-sm text-amber-300">
+              Seite {failedPages.join(", ")} konnte nicht geladen werden – es fehlen evtl. Titel.
+            </p>
+            <button
+              data-tv
+              type="button"
+              onClick={retryFailed}
+              className="tv-focusable tv-btn bg-white text-black"
+            >
+              Fehlende Seiten nachladen
+            </button>
+          </div>
+        )}
 
         {failed && titles.length === 0 ? (
           <div className="mt-6">

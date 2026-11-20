@@ -141,11 +141,12 @@ export async function enrichWithProviders(items: any[], limit = 12, overrideKey?
     }
     return base;
   });
-  // Anbieter parallel in Blöcken (je 10) anreichern statt einzeln nacheinander –
-  // sonst dauert eine Top-220-Seite mit 40 Titeln ewig.
+  // Anbieter in kleinen Parallel-Blöcken (je 5) anreichern: einzeln nacheinander
+  // dauert ewig, zu große Blöcke laufen in TMDb-Limits (429) – dann hätten
+  // Titel stillschweigend keine Anbieter und Filter würden sie aussortieren.
   const out: Title[] = [];
-  for (let i = 0; i < bases.length; i += 10) {
-    const chunk = await Promise.all(bases.slice(i, i + 10).map((b) => withProviders(b, overrideKey)));
+  for (let i = 0; i < bases.length; i += 5) {
+    const chunk = await Promise.all(bases.slice(i, i + 5).map((b) => withProviders(b, overrideKey)));
     out.push(...chunk);
   }
   return out;

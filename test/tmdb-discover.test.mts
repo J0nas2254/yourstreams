@@ -18,7 +18,7 @@ function item(id: number, pop: number) {
 
 // Stellt 20 Film- + 20 Serien-Treffer pro Discover-Seite bereit.
 // IDs enthalten die Seitennummer, damit Seiten 1..3 keine Duplikate liefern.
-function installMock() {
+function installMock(providersOk = true) {
   const realFetch = globalThis.fetch;
   const mock = (async (input: unknown) => {
     const u = String(input);
@@ -32,6 +32,7 @@ function installMock() {
       return ok({ results: Array.from({ length: 20 }, (_, i) => item(base + i, 300 - pg * 10 - i)) });
     }
     if (u.includes("/watch/providers")) {
+      if (!providersOk) return { ok: false as const, status: 429, json: async () => ({}) };
       return ok({ results: { DE: { link: null, flatrate: [] } } });
     }
     return { ok: false as const, status: 404, json: async () => ({}) };
@@ -65,6 +66,18 @@ test("3er-Blöcke bis Seite 11 ergeben bis zu 220 Titel für Top 220", async () 
     const list = [...map.values()].slice(0, 220);
     assert.equal(list.length, 220);
     assert.equal(new Set(list.map((t) => t.id)).size, 220);
+  } finally {
+    m.restore();
+  }
+});
+
+test("kaputte Anbieter-Antwort (z. B. TMDb-Limit) kürzt die Liste nicht", async () => {
+  const m = installMock(false);
+  try {
+    const r = await tmdbDiscoverByProviders([], "dummy-key", { mediaType: "all", page: 1 });
+    // Titel bleiben erhalten, nur ohne Anbieter-Badges – Filter bekommen volle Listen.
+    assert.equal(r.length, 40);
+    assert.ok(r.every((t) => Array.isArray(t.availability)));
   } finally {
     m.restore();
   }

@@ -15,6 +15,7 @@
   button { font-weight: 800; cursor: pointer; }
   button:focus-visible, a:focus-visible, select:focus-visible { outline: 4px solid #fff; outline-offset: 2px; }
   #status { padding: 0 20px 8px; color: #bbb; font-size: 16px; }
+  #status .warn { color: #fbbf24; }
   #grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; padding: 8px 20px 40px; }
   #grid a { display: block; background: #141414; border: 1px solid #333; border-radius: 12px; overflow: hidden; text-decoration: none; color: #fff; }
   #grid img { display: block; width: 100%; aspect-ratio: 2/3; object-fit: cover; background: #222; }
@@ -22,6 +23,7 @@
   #grid .t b { display: block; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   #grid .t span { color: #aaa; font-size: 14px; }
   .ph { display: flex; align-items: center; justify-content: center; width: 100%; aspect-ratio: 2/3; background: #222; font-size: 40px; font-weight: 900; color: #666; }
+  footer { padding: 0 20px 32px; color: #777; font-size: 14px; }
 </style>
 </head>
 <body>
@@ -45,6 +47,7 @@
 </div>
 <div id="status" aria-live="polite"></div>
 <div id="grid"></div>
+<footer>Top 220 &middot; Build 2026-11-20/top220-c &middot; Daten: TMDb, Region DE</footer>
 <script>
   var genreMap = { movie: [], tv: [] };
   var MAX = 220;
@@ -93,20 +96,16 @@
     }
   }
 
-  function ph(t) {
+  function phHTML(t) {
     return '<div class="ph" aria-hidden="true">' + esc((t.title || "?").slice(0, 2).toUpperCase()) + "</div>";
   }
 
-  // onerror-Fallback: scheitert ein Poster (Netz/URL), erscheint das Kürzel
-  // statt eines kaputten Bild-Symbols – und der Zähler unten verrät, ob es
-  // an den Daten (ohne Poster) oder am Laden liegt.
   function card(t) {
     var src = t.posterPath ? "https://image.tmdb.org/t/p/w342" + t.posterPath : null;
     var img = src
-      ? '<img src="' + esc(src) + '" alt="" loading="lazy" referrerpolicy="no-referrer" ' +
-        'onerror="this.style.display=\'none\';var n=this.nextElementSibling;if(n)n.style.display=\'flex\';">' +
-        '<div class="ph" style="display:none">' + esc((t.title || "?").slice(0, 2).toUpperCase()) + "</div>"
-      : ph(t);
+      ? '<img src="' + esc(src) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display=\'none\';var n=this.nextElementSibling;if(n)n.style.display=\'flex\';">'
+        + '<div class="ph" style="display:none">' + esc((t.title || "?").slice(0, 2).toUpperCase()) + "</div>"
+      : phHTML(t);
     var kind = t.mediaType === "tv" ? "Serie" : "Film";
     return (
       '<a href="/titel?id=' + encodeURIComponent(t.id) + '">' +
@@ -117,7 +116,13 @@
     );
   }
 
-  function discoverQuery(genre, media, gid, p) {
+  function posterCount(list) {
+    var n = 0;
+    for (var i = 0; i < list.length; i++) if (list[i].posterPath) n++;
+    return n;
+  }
+
+  function discoverQuery(media, gid, p) {
     var q = new URLSearchParams();
     q.set("providers", "");
     if (gid) q.set("genreId", String(gid));
@@ -126,10 +131,14 @@
     return "/api/discover?" + q.toString();
   }
 
-  function posterCount(list) {
-    var n = 0;
-    for (var i = 0; i < list.length; i++) if (list[i].posterPath) n++;
-    return n;
+  function renderStatus(failedPages) {
+    var el = $("status");
+    if (failedPages.length === 0) {
+      el.textContent = "";
+      return;
+    }
+    el.innerHTML = '<span class="warn">Seite ' + failedPages.join(", ") +
+      " konnte nicht geladen werden \u2013 es fehlen evtl. Titel. Button \u201eAnwenden\u201c erneut dr\u00fccken.</span>";
   }
 
   async function load() {
@@ -142,19 +151,24 @@
     try {
       var map = {};
       var order = [];
+      var failedPages = [];
       for (var from = 1; from <= 11; from += 3) {
         var pages = [from, from + 1, from + 2].filter(function (p) { return p <= 11; });
         var batches = await Promise.all(pages.map(function (p) {
-          return getJSON(discoverQuery(genre, media, gid, p)).then(
-            function (d) { return d.results || []; },
-            function () { return []; }
+          return getJSON(discoverQuery(media, gid, p)).then(
+            function (d) { return { page: p, results: d.results || [], ok: true }; },
+            function () { return { page: p, results: [], ok: false }; }
           );
         }));
         var empty = false;
         for (var i = 0; i < batches.length; i++) {
-          if (batches[i].length === 0) empty = true;
-          for (var j = 0; j < batches[i].length; j++) {
-            var t = batches[i][j];
+          if (!batches[i].ok) {
+            failedPages.push(batches[i].page);
+            continue;
+          }
+          if (batches[i].results.length === 0) empty = true;
+          for (var j = 0; j < batches[i].results.length; j++) {
+            var t = batches[i].results[j];
             if (!map[t.id]) { map[t.id] = t; order.push(t); }
           }
           if (order.length >= MAX) break;
@@ -162,13 +176,17 @@
         var list = order.slice(0, MAX);
         $("grid").innerHTML = list.map(card).join("");
         $("count").textContent = list.length + " Titel (" + posterCount(list) + " mit Poster)";
+        renderStatus(failedPages);
         if (order.length >= MAX || empty) break;
-        $("status").textContent = "L\u00e4dt weiter \u2026 (" + list.length + " geladen)";
+        if (failedPages.length === 0) $("status").textContent = "L\u00e4dt weiter \u2026 (" + list.length + " geladen)";
       }
       var done = order.slice(0, MAX);
       $("grid").innerHTML = done.map(card).join("");
       $("count").textContent = done.length + " Titel (" + posterCount(done) + " mit Poster)";
-      $("status").textContent = done.length === 0 ? "Keine Ergebnisse \u2013 Filter anpassen." : "";
+      renderStatus(failedPages);
+      if (failedPages.length === 0 && done.length === 0) {
+        $("status").textContent = "Keine Ergebnisse \u2013 Filter anpassen.";
+      }
     } catch (e) {
       $("count").textContent = "Fehler";
       $("status").textContent = "Laden fehlgeschlagen (" + e.message + "). " +
