@@ -203,9 +203,22 @@ export default function TitelDetail() {
                   <span className="text-xs text-slate-400">{AVAILABILITY_LABELS[g.kind]}</span>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
-                  {g.entries.map((e, i) => (
-                    <ProviderBadge key={`${e.provider_id}-${i}`} name={e.provider_name} />
-                  ))}
+                  {g.entries.map((e, i) => {
+                    const href = title.justWatchLink ?? `https://www.justwatch.com/de/Suche?q=${encodeURIComponent(title.title)}`;
+                    return (
+                      <a
+                        key={`${e.provider_id}-${i}`}
+                        href={href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label={`${e.provider_name} bei JustWatch öffnen`}
+                        title="Bei JustWatch öffnen"
+                        className="underline decoration-dotted underline-offset-4"
+                      >
+                        <ProviderBadge name={`${e.provider_name} ↗`} />
+                      </a>
+                    );
+                  })}
                 </div>
               </li>
             ))}

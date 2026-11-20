@@ -971,6 +971,7 @@ export default function TvPage() {
               <p className="mt-2 text-sm text-slate-300">Genres: {detail.genres.join(", ")}</p>
             )}
             <h3 className="mt-5 text-lg font-extrabold">Verfügbarkeit in Deutschland (DE)</h3>
+            <p className="mt-1 text-sm text-slate-400">Anbieter antippen zum Öffnen (Link aus der TMDb-API).</p>
             {detail.availability.length === 0 ? (
               <p className="mt-2 text-base text-slate-300">
                 Aktuell keine Verfügbarkeit für DE bekannt – Daten können veraltet oder unvollständig sein.
@@ -979,11 +980,22 @@ export default function TvPage() {
               <div className="mt-3 flex flex-wrap gap-2">
                 {detail.availability
                   .filter((a, i, arr) => arr.findIndex((b) => b.provider_id === a.provider_id && b.kind === a.kind) === i)
-                  .map((a, i) => (
-                    <span key={`${a.provider_id}-${i}`} className="rounded-full bg-white/10 px-3 py-1 text-sm">
-                      {a.provider_name} · {AVAILABILITY_LABELS[a.kind] ?? a.kind}
-                    </span>
-                  ))}
+                  .map((a, i) => {
+                    const href = detail.justWatchLink ?? `https://www.justwatch.com/de/Suche?q=${encodeURIComponent(detail.title)}`;
+                    return (
+                      <button
+                        key={`${a.provider_id}-${i}`}
+                        data-tv
+                        type="button"
+                        onClick={() => openExternal(href)}
+                        aria-label={`${a.provider_name} öffnen`}
+                        title="Bei JustWatch öffnen"
+                        className="tv-focusable rounded-full bg-white/10 px-3 py-1 text-sm underline decoration-dotted underline-offset-2"
+                      >
+                        {a.provider_name} · {AVAILABILITY_LABELS[a.kind] ?? a.kind} ↗
+                      </button>
+                    );
+                  })}
               </div>
             )}
             <div className="mt-6">
