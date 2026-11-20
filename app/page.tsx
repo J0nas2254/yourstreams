@@ -96,7 +96,7 @@ function GenreRail({
         </div>
       ) : (
         <ul className="no-scrollbar -mx-1 mt-3 flex snap-x gap-3 overflow-x-auto px-1 pb-2">
-          {preview.slice(0, 12).map((t) => (
+          {preview.slice(0, 20).map((t) => (
             <li key={t.id} className="shrink-0 snap-start">
               <PosterCard title={t} onMyServices={onMyServicesIds?.has(t.id)} seen={seenIds?.has(t.id)} />
             </li>

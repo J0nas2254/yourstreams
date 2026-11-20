@@ -16,6 +16,8 @@
   button:focus-visible, a:focus-visible, select:focus-visible { outline: 4px solid #fff; outline-offset: 2px; }
   #status { padding: 0 20px 8px; color: #bbb; font-size: 16px; }
   #status .warn { color: #fbbf24; }
+  #status .err { color: #f87171; }
+  #status .ok { color: #4ade80; }
   #grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; padding: 8px 20px 40px; }
   #grid a { display: block; background: #141414; border: 1px solid #333; border-radius: 12px; overflow: hidden; text-decoration: none; color: #fff; }
   #grid img { display: block; width: 100%; aspect-ratio: 2/3; object-fit: cover; background: #222; }
@@ -62,8 +64,23 @@
 
   async function getJSON(path) {
     var r = await fetch(path);
-    if (!r.ok) throw new Error("HTTP " + r.status);
-    return r.json();
+    var txt = await r.text();
+    var d;
+    try { d = JSON.parse(txt); } catch { d = {}; }
+    if (!r.ok) {
+      var msg = (d && d.error) || ("HTTP " + r.status);
+      if (r.status === 503) {
+        msg = "TMDb nicht konfiguriert: Server braucht TMDB_API_KEY (lokal .env.local, gehostet: Secrets).";
+      }
+      throw new Error(msg);
+    }
+    return d;
+  }
+
+  function setStatus(msg, cls) {
+    var el = $("status");
+    el.textContent = msg;
+    el.className = cls || "";
   }
 
   function genreIdFor(name, media) {
@@ -92,7 +109,7 @@
         sel.appendChild(o);
       }
     } catch (e) {
-      $("status").textContent = "Genres konnten nicht geladen werden: " + e.message;
+      setStatus("Genres fehlgeschlagen: " + e.message, "err");
     }
   }
 
@@ -147,7 +164,7 @@
     var gid = genreIdFor(genre, media);
     $("gname").textContent = genre || "Alle Genres";
     $("grid").innerHTML = "";
-    $("status").textContent = "";
+    setStatus("Lade Seiten 1\u20133...", "");
     try {
       var map = {};
       var order = [];
@@ -178,19 +195,20 @@
         $("count").textContent = list.length + " Titel (" + posterCount(list) + " mit Poster)";
         renderStatus(failedPages);
         if (order.length >= MAX || empty) break;
-        if (failedPages.length === 0) $("status").textContent = "L\u00e4dt weiter \u2026 (" + list.length + " geladen)";
+        if (failedPages.length === 0) setStatus("L\u00e4dt weiter \u2026 (" + list.length + " geladen)", "");
       }
       var done = order.slice(0, MAX);
       $("grid").innerHTML = done.map(card).join("");
       $("count").textContent = done.length + " Titel (" + posterCount(done) + " mit Poster)";
       renderStatus(failedPages);
       if (failedPages.length === 0 && done.length === 0) {
-        $("status").textContent = "Keine Ergebnisse \u2013 Filter anpassen.";
+        setStatus("Keine Ergebnisse \u2013 Filter anpassen (oder TMDB_API_KEY pr\u00fcfen).", "warn");
+      } else if (failedPages.length === 0) {
+        setStatus("Fertig: " + done.length + " Titel geladen.", "ok");
       }
     } catch (e) {
       $("count").textContent = "Fehler";
-      $("status").textContent = "Laden fehlgeschlagen (" + e.message + "). " +
-        "Falls HTTP 503: TMDb-Key fehlt auf dem Server bzw. Dev-Server neu starten nach git pull.";
+      setStatus("Laden fehlgeschlagen: " + e.message, "err");
     }
   }
 

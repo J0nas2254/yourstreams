@@ -37,7 +37,7 @@ export default function TitleRow({
     el.scrollBy({ left: dir * Math.max(el.clientWidth * 0.8, 300), behavior: "smooth" });
   }
 
-  const preview = expanded ? titles : titles.slice(0, 12);
+  const preview = expanded ? titles : titles.slice(0, 20);
 
   return (
     <section aria-label={heading} className="mt-8">

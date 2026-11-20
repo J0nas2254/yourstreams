@@ -609,7 +609,7 @@ export default function TvPage() {
           </div>
         ) : (
           <div className="tv-row no-scrollbar">
-            {titles.slice(0, 12).map((t) => (
+            {titles.slice(0, 20).map((t) => (
               <Card key={t.id} t={t} reason={reasons?.get(t.id)} />
             ))}
           </div>
@@ -694,7 +694,7 @@ export default function TvPage() {
           </button>
         </div>
         <div className="tv-row no-scrollbar">
-          {preview.slice(0, 12).map((t) => (
+          {preview.slice(0, 20).map((t) => (
             <Card key={t.id} t={t} />
           ))}
         </div>
