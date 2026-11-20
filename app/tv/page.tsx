@@ -110,6 +110,8 @@ export default function TvPage() {
   const [fOnlyMine, setFOnlyMine] = useState(false);
   const [fIncluded, setFIncluded] = useState(false);
   const [genreMap, setGenreMap] = useState<Genre[]>([]);
+  const [genresMovie, setGenresMovie] = useState<Genre[]>([]);
+  const [genresTv, setGenresTv] = useState<Genre[]>([]);
   const [providers, setProviders] = useState<{ provider_id: number; provider_name: string }[]>([]);
   const [status, setStatus] = useState<"loading" | "ok" | "setup" | "error">("loading");
   const [detailId, setDetailId] = useState<string | null>(null);
@@ -127,6 +129,8 @@ export default function TvPage() {
         const merged = new Map<string, Genre>();
         for (const x of [...g.movie, ...g.tv]) if (!merged.has(x.name)) merged.set(x.name, x);
         setGenreMap([...merged.values()]);
+        setGenresMovie(g.movie);
+        setGenresTv(g.tv);
         setStatus("ok");
       })
       .catch((e) => {
@@ -524,6 +528,101 @@ export default function TvPage() {
     );
   }
 
+  // Netflix-Stil: eine Schiene pro Genre, jede mit echten Discover-Daten.
+  // Vorschaureihe lädt sofort, „Top 220“ lädt bis zu 220 Titel des Genres.
+  function GenreRow({ name, genreId, media }: { name: string; genreId: number | null; media: "movie" | "tv" | "all" }) {
+    const [preview, setPreview] = useState<Title[] | null>(null);
+    const [open, setOpen] = useState(false);
+    const [all, setAll] = useState<Title[] | null>(null);
+    const [loading, setLoading] = useState(false);
+    useEffect(() => {
+      let cancelled = false;
+      async function load() {
+        if (genreId == null) {
+          if (!cancelled) setPreview([]);
+          return;
+        }
+        try {
+          const map = new Map<string, Title>();
+          for (let page = 1; page <= 2; page += 1) {
+            const r = await apiDiscover([], { genreId, mediaType: media, page });
+            if (r.length === 0) break;
+            for (const t of r) if (!map.has(t.id)) map.set(t.id, t);
+          }
+          if (!cancelled) setPreview([...map.values()]);
+        } catch {
+          if (!cancelled) setPreview([]);
+        }
+      }
+      void load();
+      return () => {
+        cancelled = true;
+      };
+    }, [genreId, media]);
+    async function toggle() {
+      if (open) {
+        setOpen(false);
+        return;
+      }
+      setOpen(true);
+      if (genreId == null || all || loading) return;
+      setLoading(true);
+      try {
+        const map = new Map<string, Title>();
+        for (const t of preview ?? []) map.set(t.id, t);
+        for (let page = 1; page <= 11; page += 1) {
+          try {
+            const r = await apiDiscover([], { genreId, mediaType: media, page });
+            if (r.length === 0) break;
+            for (const t of r) if (!map.has(t.id)) map.set(t.id, t);
+            if (map.size >= 220) break;
+          } catch {
+            break;
+          }
+        }
+        setAll([...map.values()].slice(0, 220));
+      } finally {
+        setLoading(false);
+      }
+    }
+    if (preview === null) {
+      return (
+        <section aria-label={name} className="mt-8">
+          <h2 className="tv-row-title">{name}</h2>
+          <p className="mt-2 text-sm text-slate-400" aria-live="polite">Lädt …</p>
+        </section>
+      );
+    }
+    if (preview.length === 0) return null;
+    const grid = (open ? (all ?? preview) : preview).slice(0, 220);
+    return (
+      <section aria-label={name} className="mt-8">
+        <div className="tv-row-head">
+          <h2 className="tv-row-title">{name}</h2>
+          <button data-tv type="button" onClick={() => void toggle()} aria-expanded={open} className="tv-focusable tv-more-btn">
+            {open ? "Weniger" : "Top 220"}
+          </button>
+        </div>
+        {loading && open && (
+          <p className="mt-2 text-sm text-slate-300" aria-live="polite">Lade Top 220 …</p>
+        )}
+        {open ? (
+          <div className="tv-grid-all">
+            {grid.map((t) => (
+              <Card key={t.id} t={t} wide />
+            ))}
+          </div>
+        ) : (
+          <div className="tv-row no-scrollbar">
+            {preview.slice(0, 12).map((t) => (
+              <Card key={t.id} t={t} />
+            ))}
+          </div>
+        )}
+      </section>
+    );
+  }
+
   if (status === "setup") {
     return (
       <div className="tv-root text-white">
@@ -770,8 +869,8 @@ export default function TvPage() {
               {entdecken && entdecken.spotlight.length > 0 && (
                 <Row heading="Neu für dich – gemischt" titles={entdecken.spotlight} reasons={entdecken.reasons} />
               )}
-              {entdecken?.genreRails.map((r) => (
-                <Row key={r.heading} heading={r.heading} titles={r.titles} genreId={genreMap.find((x) => x.name === r.heading)?.id ?? null} media="all" />
+              {GENRE_PRESETS.slice(0, 8).map((g) => (
+                <GenreRow key={g} name={g} genreId={genreMap.find((x) => x.name === g)?.id ?? null} media="all" />
               ))}
               <Row heading="Im Trend" titles={freshTrending} />
             </>
@@ -780,8 +879,8 @@ export default function TvPage() {
               {serien && serien.spotlight.length > 0 && (
                 <Row heading="Serien für dich" titles={serien.spotlight} reasons={serien.reasons} />
               )}
-              {serien?.genreRails.map((r) => (
-                <Row key={r.heading} heading={r.heading} titles={r.titles} genreId={genreMap.find((x) => x.name === r.heading)?.id ?? null} media="tv" />
+              {(genresTv.length > 0 ? genresTv.slice(0, 8) : []).map((g) => (
+                <GenreRow key={g.id} name={g.name} genreId={g.id} media="tv" />
               ))}
             </>
           ) : (
@@ -789,8 +888,8 @@ export default function TvPage() {
               {filme && filme.spotlight.length > 0 && (
                 <Row heading="Filme für dich" titles={filme.spotlight} reasons={filme.reasons} />
               )}
-              {filme?.genreRails.map((r) => (
-                <Row key={r.heading} heading={r.heading} titles={r.titles} genreId={genreMap.find((x) => x.name === r.heading)?.id ?? null} media="movie" />
+              {(genresMovie.length > 0 ? genresMovie.slice(0, 8) : []).map((g) => (
+                <GenreRow key={g.id} name={g.name} genreId={g.id} media="movie" />
               ))}
             </>
           )}
