@@ -530,25 +530,11 @@ export default function TvPage() {
               <div className="mt-3 flex flex-wrap gap-2">
                 {detail.availability
                   .filter((a, i, arr) => arr.findIndex((b) => b.provider_id === a.provider_id && b.kind === a.kind) === i)
-                  .map((a, i) => {
-                    const label = AVAILABILITY_LABELS[a.kind] ?? a.kind;
-                    return detail.justWatchLink ? (
-                      <button
-                        key={`${a.provider_id}-${i}`}
-                        data-tv
-                        type="button"
-                        onClick={() => detail.justWatchLink && openExternal(detail.justWatchLink)}
-                        aria-label={`„${detail.title}“ bei ${a.provider_name} ansehen (${label})`}
-                        className="tv-focusable rounded-xl bg-blue-600 px-4 py-2 text-base font-bold text-white"
-                      >
-                        Bei {a.provider_name} ansehen · {label} ↗
-                      </button>
-                    ) : (
-                      <span key={`${a.provider_id}-${i}`} className="rounded-full bg-white/10 px-3 py-1 text-sm">
-                        {a.provider_name} · {label}
-                      </span>
-                    );
-                  })}
+                  .map((a, i) => (
+                    <span key={`${a.provider_id}-${i}`} className="rounded-full bg-white/10 px-3 py-1 text-sm">
+                      {a.provider_name} · {AVAILABILITY_LABELS[a.kind] ?? a.kind}
+                    </span>
+                  ))}
               </div>
             )}
             <div className="mt-6">
@@ -584,6 +570,16 @@ export default function TvPage() {
               />
             )}
             <div className="mt-4 flex flex-wrap gap-2">
+              {detail.justWatchLink ? (
+                <button
+                  data-tv
+                  type="button"
+                  onClick={() => detail.justWatchLink && openExternal(detail.justWatchLink)}
+                  className="tv-focusable rounded-xl bg-blue-600 px-5 py-2.5 text-lg font-bold text-white"
+                >
+                  Watch-Optionen zu diesem Titel öffnen ↗
+                </button>
+              ) : null}
               <button
                 data-tv
                 type="button"
@@ -593,11 +589,11 @@ export default function TvPage() {
                 Schließen (Zurück)
               </button>
             </div>
-            {!detail.justWatchLink && (
-              <p className="mt-3 text-sm text-slate-400">
-                Kein Link aus der API – bitte direkt in der App des Anbieters suchen. Keine Wiedergabe in dieser App.
-              </p>
-            )}
+            <p className="mt-3 text-sm text-slate-400">
+              {detail.justWatchLink
+                ? "Der Button öffnet den echten Titel-Link aus der TMDb-API (u. a. JustWatch). Dort wählst du den Anbieter. Keine Wiedergabe in dieser App."
+                : "Kein externer Titel-Link aus der API – bitte direkt in der App des Anbieters suchen. Keine Wiedergabe in dieser App."}
+            </p>
           </div>
         </div>
       )}
