@@ -9,12 +9,13 @@ import { usePrefs } from "@/lib/store";
 import { posterUrl } from "@/lib/images";
 import "../tv.css";
 
-// Echte Unterseite für eine Auswahl: Genre (+ Filter) mit bis zu 120 Titeln.
+// Echte Unterseite für eine Auswahl: Genre (+ Filter) mit bis zu 220 Titeln.
 // Ein Discover-Abruf liefert bis zu 40 Titel (Film- + Serien-Seite);
-// 3 Abrufe parallel ≈ bis zu 120 Titel sofort auf der Seite.
+// 3 Abrufe parallel ≈ bis zu 120 Titel sofort, Rest per „Mehr laden“
+// bis Seite 11 (bis zu 220 Titel).
 const PAGES_PER_LOAD = 3;
-const MAX_PAGES = 3;
-const MAX_TITLES = 120;
+const MAX_PAGES = 11;
+const MAX_TITLES = 220;
 
 type Media = "movie" | "tv" | "all";
 
@@ -109,7 +110,7 @@ function TopInner() {
       const map = new Map<string, Title>();
       for (const t of base) map.set(t.id, t);
       let reachedEnd = false;
-      // Seiten parallel laden statt nacheinander – sonst dauert Top 120 ewig.
+      // Seiten parallel laden statt nacheinander – sonst dauert Top 220 ewig.
       const pagesToLoad: number[] = [];
       for (let p = from; p < from + count && p <= MAX_PAGES; p += 1) pagesToLoad.push(p);
       let last = from - 1;
@@ -183,7 +184,7 @@ function TopInner() {
           <Link data-tv href="/tv" className="tv-focusable tv-btn bg-white text-black" style={{ textDecoration: "none" }}>
             ← Zurück
           </Link>
-          <h1 className="tv-top-title">Top 120 · {shownGenre}</h1>
+          <h1 className="tv-top-title">Top 220 · {shownGenre}</h1>
           <span className="tv-top-count" aria-live="polite">
             {loading && titles.length === 0 ? "Lädt …" : `${titles.length} Titel`}
           </span>
@@ -328,7 +329,7 @@ function TopInner() {
                   onClick={loadMore}
                   className="tv-focusable tv-btn bg-white text-black"
                 >
-                  Mehr laden ({titles.length} von bis zu 120)
+                  Mehr laden ({titles.length} von bis zu 220)
                 </button>
               ) : (
                 <p className="text-sm text-slate-400">{titles.length} Titel geladen.</p>
@@ -343,7 +344,7 @@ function TopInner() {
 
 export default function TopPage() {
   return (
-    <Suspense fallback={<p className="text-slate-300">Top 120 wird geladen …</p>}>
+    <Suspense fallback={<p className="text-slate-300">Top 220 wird geladen …</p>}>
       <TopInner />
     </Suspense>
   );

@@ -50,17 +50,21 @@ test("discover liefert 40 Titel pro Abruf (Film- + Serien-Seite voll, nicht nur 
   }
 });
 
-test("3 Discover-Seiten ergeben bis zu 120 Titel für Top 120", async () => {
+test("3er-Blöcke bis Seite 11 ergeben bis zu 220 Titel für Top 220", async () => {
   const m = installMock();
   try {
     const map = new Map<string, Discovered>();
-    for (const page of [1, 2, 3]) {
-      const r = await tmdbDiscoverByProviders([], "dummy-key", { mediaType: "all", page });
-      for (const t of r) if (!map.has(t.id)) map.set(t.id, t);
+    for (let from = 1; from <= 11; from += 3) {
+      for (const page of [from, from + 1, from + 2].filter((p) => p <= 11)) {
+        const r = await tmdbDiscoverByProviders([], "dummy-key", { mediaType: "all", page });
+        for (const t of r) if (!map.has(t.id)) map.set(t.id, t);
+        if (map.size >= 220) break;
+      }
+      if (map.size >= 220) break;
     }
-    const list = [...map.values()].slice(0, 120);
-    assert.equal(list.length, 120);
-    assert.equal(new Set(list.map((t) => t.id)).size, 120);
+    const list = [...map.values()].slice(0, 220);
+    assert.equal(list.length, 220);
+    assert.equal(new Set(list.map((t) => t.id)).size, 220);
   } finally {
     m.restore();
   }

@@ -1,6 +1,8 @@
 # StreamFinder – Stand, Verlauf, Probleme, nächste Schritte
 
 > Letzte Aktualisierung: 20.11.2026, HEAD `35df5c8` (lokal = `origin/main`, alles gepusht).
+> **Nachtrag:** Auf Wunsch des Users zählt alles wieder bis **220** (Commit `top220` unten).
+> `public/top120.html` → `public/top220.html`, erreichbar unter `http://localhost:3000/top220.html`.
 > Diese Datei ergänzt `EINWEISUNG.md` (Geräte, Befehle, eiserne Regeln – gelten weiter).
 > Sie ist das Gedächtnis des Projekts: was gebaut wurde, wo es klemmt, was als Nächstes ansteht.
 
@@ -29,7 +31,7 @@ git pull origin main
 npm install
 npm test                    # muss grün sein (derzeit 14/14)
 npm run typecheck           # muss fehlerfrei sein
-npm run dev -- -H 0.0.0.0 -p 3000   # lokal: http://localhost:3000 , TV: /tv , Top: /tv/top , HTML: /top120.html
+npm run dev -- -H 0.0.0.0 -p 3000   # lokal: http://localhost:3000 , TV: /tv , Top: /tv/top , HTML: /top220.html
 ```
 
 **APK-Pipeline (Reihenfolge einhalten, erst Backend publishen!):**
@@ -91,12 +93,12 @@ Betroffene Kern-Dateien: `app/tv/page.tsx`, `app/tv/top/page.tsx`, `app/page.tsx
 
 - **Code fertig und geprüft:** `typecheck` grün, `npm test` **14/14 grün** (12 Filter-Tests + 2 neue
   Discover-Tests, die 40 Titel/Abruf und 120 Titel aus 3 Seiten beweisen). Alles auf `main` gepusht.
-- **Top 120 funktioniert im Code:** `/tv/top`, TV-Schienen, Filter-Stöbern und Web-Startseite laden je
-  3 Discover-Seiten parallel → bis zu 120 Titel. Zusätzlich gibt es als unabhängigen Beweis die
-  React-freie Seite **`public/top120.html`** (Genre-Dropdown, bis 120 verlinkte Karten nach `/titel`).
+- **Top 220 funktioniert im Code:** `/tv/top`, TV-Schienen, Filter-Stöbern und Web-Startseite laden
+  3er-Blöcke parallel bis Seite 11 → bis zu 220 Titel. Zusätzlich gibt es als unabhängigen Beweis die
+  React-freie Seite **`public/top220.html`** (Genre-Dropdown, bis 220 verlinkte Karten nach `/titel`).
 - **User-Seite abgeschlossen:** lokales `main` hing auf `0b2f587` fest → per `git reset --hard origin/main`
   auf `35df5c8` geholt. **Danach noch offen:** Dev-Server neu starten und
-  `http://localhost:3000/top120.html` prüfen (Kopfzeile zeigt echte Titel-Anzahl).
+  `http://localhost:3000/top220.html` prüfen (Kopfzeile zeigt echte Titel-Anzahl).
 - **Noch offen (Cube):** Backend publishen → APK-Pipeline → `adb install -r`.
 
 ## 5. Probleme – ehrlich benannt
@@ -120,8 +122,8 @@ Betroffene Kern-Dateien: `app/tv/page.tsx`, `app/tv/top/page.tsx`, `app/page.tsx
 
 ## 6. Nächste Schritte (Reihenfolge!)
 
-1. [ ] Dev-Server neu starten, `http://localhost:3000/top120.html` öffnen → Zahl aus Kopfzeile melden.
-2. [ ] `http://localhost:3000/tv` → Genre → Top 120 → Zahl prüfen.
+1. [ ] Dev-Server neu starten, `http://localhost:3000/top220.html` öffnen → Zahl aus Kopfzeile melden.
+2. [ ] `http://localhost:3000/tv` → Genre → Top 220 → Zahl prüfen.
 3. [ ] Falls Zahl ≈ 120 (je nach Genre): Backend publishen, APK-Pipeline, Cube-Update.
 4. [ ] Falls Zahl = 12: Screenshot + genaue URL/Genre schicken – dann wird an genau der Stelle
    weitergesucht (kein neues Raten).

@@ -13,7 +13,7 @@ import SetupNotice from "@/components/setup-notice";
 import TitleRow from "@/components/title-row";
 import PosterCard from "@/components/poster-card";
 
-/** Eine Genre-Schiene: Vorschaureihe + „Mehr“ lädt die besten ~120 per Discover-Seiten. */
+/** Eine Genre-Schiene: Vorschaureihe + „Mehr“ lädt die besten ~220 per Discover-Seiten. */
 function GenreRail({
   heading,
   genreId,
@@ -41,20 +41,26 @@ function GenreRail({
     try {
       const seen = new Map<string, Title>();
       for (const t of preview) seen.set(t.id, t);
-      // TMDb-Discover: ~40 Treffer/Abruf (Film + Serie) → Seiten 1..3 ≈ bis zu 120 Titel.
-      const batches = await Promise.all(
-        [1, 2, 3].map((page) =>
-          apiDiscover([], { genreId, page }).then(
-            (r) => r,
-            () => [] as Title[]
+      // TMDb-Discover: ~40 Treffer/Abruf (Film + Serie) → 3er-Blöcke bis Seite 11 ≈ bis zu 220 Titel.
+      for (let from = 1; from <= 11; from += 3) {
+        const pages = [from, from + 1, from + 2].filter((p) => p <= 11);
+        const batches = await Promise.all(
+          pages.map((page) =>
+            apiDiscover([], { genreId, page }).then(
+              (r) => r,
+              () => [] as Title[]
+            )
           )
-        )
-      );
-      for (const r of batches) {
-        for (const t of r) if (!seen.has(t.id)) seen.set(t.id, t);
-        if (seen.size >= 120) break;
+        );
+        let empty = false;
+        for (const r of batches) {
+          if (r.length === 0) empty = true;
+          for (const t of r) if (!seen.has(t.id)) seen.set(t.id, t);
+          if (seen.size >= 220) break;
+        }
+        if (seen.size >= 220 || empty) break;
       }
-      setAll([...seen.values()].slice(0, 120));
+      setAll([...seen.values()].slice(0, 220));
     } catch {
       setFailed(true);
     } finally {
@@ -62,7 +68,7 @@ function GenreRail({
     }
   }
 
-  const grid = (all ?? preview).slice(0, 120);
+  const grid = (all ?? preview).slice(0, 220);
   return (
     <section aria-label={heading} className="mt-8">
       <div className="flex items-center justify-between gap-2 px-1">
@@ -73,7 +79,7 @@ function GenreRail({
           aria-expanded={open}
           className="shrink-0 rounded-full border border-white/20 bg-white px-4 py-1 text-sm font-bold text-black hover:bg-neutral-200"
         >
-                      {open ? "Weniger" : `Top 120 ${heading}`}
+                      {open ? "Weniger" : `Top 220 ${heading}`}
         </button>
       </div>
       {open ? (
