@@ -3,13 +3,11 @@
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Genre, Title } from "@/lib/types";
-import { ApiError, apiDiscover, apiGenres, apiImdbRating, apiProviders, apiSearch } from "@/lib/api.ts";
+import { ApiError, apiDiscover, apiGenres, apiImdbRating, apiSearch } from "@/lib/api.ts";
 import { isOnMyServicesEntries, usePrefs } from "@/lib/store";
 import { applySearchFilters } from "@/lib/prefs.ts";
 import { ProviderBadge } from "@/components/badges";
 import PosterCard from "@/components/poster-card";
-import { filterFreeProviders } from "@/lib/free-tv";
-import { groupProviders } from "@/lib/provider-groups";
 import SetupNotice from "@/components/setup-notice";
 
 function SucheInner() {
@@ -26,13 +24,11 @@ function SucheInner() {
   const [genre, setGenre] = useState("");
   const [yearFrom, setYearFrom] = useState("");
   const [yearTo, setYearTo] = useState("");
-  const [providerId, setProviderId] = useState("");
   const [includedOnly, setIncludedOnly] = useState(false);
   const [minImdb, setMinImdb] = useState("");
   const [seenFilter, setSeenFilter] = useState<"all" | "unseen" | "seen">("unseen");
   const [genres, setGenres] = useState<Genre[]>([]);
   const [genresTv, setGenresTv] = useState<Genre[]>([]);
-  const [providers, setProviders] = useState<{ provider_id: number; provider_name: string }[]>([]);
   const [imdbById, setImdbById] = useState<Map<string, number | null>>(new Map());
   const { prefs, loaded } = usePrefs();
 
@@ -44,9 +40,6 @@ function SucheInner() {
         setGenres([...seen.values()].sort((a, b) => a.name.localeCompare(b.name, "de")));
         setGenresTv(g.tv);
       })
-      .catch(() => {});
-    apiProviders()
-      .then(setProviders)
       .catch(() => {});
   }, []);
 
@@ -60,11 +53,7 @@ function SucheInner() {
     setStatus("loading");
     setMode("browse");
     try {
-      const providersForBrowse = providerId
-        ? [Number(providerId)]
-        : onlyMine
-          ? prefs.services
-          : [];
+      const providersForBrowse = onlyMine ? prefs.services : [];
       const r = await apiDiscover(providersForBrowse, {
         genreId: genreIdFor(genre),
         yearFrom: yearFrom ? Number(yearFrom) : null,
@@ -82,7 +71,7 @@ function SucheInner() {
       setResults([]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [providerId, onlyMine, prefs.services, genre, genres, genresTv, yearFrom, yearTo, mediaType]);
+  }, [onlyMine, prefs.services, genre, genres, genresTv, yearFrom, yearTo, mediaType]);
 
   const run = useCallback(
     async (query: string) => {
@@ -175,14 +164,13 @@ function SucheInner() {
         genre: genre || undefined,
         yearFrom: yearFrom ? Number(yearFrom) : null,
         yearTo: yearTo ? Number(yearTo) : null,
-        providerId: providerId ? Number(providerId) : null,
         includedOnly,
         minImdb: minImdb ? Number(minImdb) : null,
         imdbById,
         seenFilter,
         seenIds: new Set(prefs.seen)
       }),
-    [results, onlyMine, prefs.services, prefs.seen, mediaType, genre, yearFrom, yearTo, providerId, includedOnly, minImdb, imdbById, seenFilter]
+    [results, onlyMine, prefs.services, prefs.seen, mediaType, genre, yearFrom, yearTo, includedOnly, minImdb, imdbById, seenFilter]
   );
 
   const onMineIds = useMemo(
@@ -228,19 +216,12 @@ function SucheInner() {
           className="w-full flex-1 rounded-2xl border border-white/15 bg-ink-950 px-4 py-3 text-white placeholder:text-slate-500"
         />
         <button type="submit" className="rounded-2xl bg-white px-6 py-3 font-extrabold text-slate-900">
-          {q.trim() ? "Suchen" : "Stöbern"}
-        </button>
-        <button
-          type="button"
-          onClick={runBrowse}
-          className="rounded-2xl border border-white/20 px-6 py-3 font-extrabold text-white"
-        >
-          Nur Filter
+          {q.trim() ? "Suchen" : "Filtern"}
         </button>
       </form>
       <p className="text-xs text-slate-400">
-        Kein Titel im Kopf? Filter setzen (z. B. Genre + Anbieter + Zeitraum) und auf „Stöbern“ oder „Nur
-        Filter“ tippen – die App schlägt passende Titel vor.
+        Kein Titel im Kopf? Feld leer lassen und nur Filter nutzen – jedes Feld ist optional, leere Felder
+        werden ignoriert. Ein Tipp auf „Filtern“ genügt.
       </p>
 
       <fieldset className="grid grid-cols-2 gap-2 overflow-hidden rounded-2xl border border-white/10 bg-ink-800/60 p-3 sm:grid-cols-4">
@@ -269,24 +250,6 @@ function SucheInner() {
         <label className={labelCls}>
           Jahr bis
           <input value={yearTo} onChange={(e) => setYearTo(e.target.value)} inputMode="numeric" placeholder="z. B. 2024" className={inputCls} />
-        </label>
-        <label className={labelCls}>
-          Anbieter
-          <select value={providerId} onChange={(e) => setProviderId(e.target.value)} className={inputCls}>
-            <option value="">Alle Anbieter</option>
-            <option value="-1">Free TV (kostenlos)</option>
-            {groupProviders(filterFreeProviders(providers).filter((p) => p.provider_id !== -1)).map((g) =>
-              g.items.length === 1 ? (
-                <option key={g.items[0].provider_id} value={g.items[0].provider_id}>{g.items[0].provider_name}</option>
-              ) : (
-                <optgroup key={g.key} label={`${g.label} (${g.items.length})`}>
-                  {g.items.map((p) => (
-                    <option key={p.provider_id} value={p.provider_id}>{p.provider_name}</option>
-                  ))}
-                </optgroup>
-              )
-            )}
-          </select>
         </label>
         <label className={labelCls}>
           Gesehen-Status
@@ -328,7 +291,7 @@ function SucheInner() {
         <div className="flex flex-wrap items-center gap-2">
           <p aria-live="polite" className="text-sm text-slate-400">
             {filtered.length === 0
-              ? "Keine Ergebnisse – passe Filter an (z. B. Zeitraum weiter fassen oder anderen Anbieter wählen)."
+              ? "Keine Ergebnisse – passe Filter an (z. B. Zeitraum weiter fassen oder Genre wechseln)."
               : mode === "browse"
                 ? `${filtered.length} Vorschlag/Vorschläge zum Stöbern.`
                 : `${filtered.length} Ergebnis(se).`}
