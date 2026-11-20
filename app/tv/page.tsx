@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Browser } from "@capacitor/browser";
 import type { Genre, Title } from "@/lib/types";
-import { ApiError, apiDiscover, apiGenres, apiImdbRating, apiProviders, apiSeasonEpisodes, apiTitle, apiTrending, isCapacitorAndroid } from "@/lib/api.ts";
+import { ApiError, apiDiscover, apiGenres, apiImdbRating, apiProviders, apiSeasonEpisodes, apiSimilar, apiTitle, apiTrending, isCapacitorAndroid } from "@/lib/api.ts";
 import { isOnMyServicesEntries, usePrefs } from "@/lib/store";
 import { genreWeights, nextUnseenEpisode } from "@/lib/prefs.ts";
 import EpisodeTracker, { useSeriesEpisodes } from "@/components/episode-tracker";
@@ -327,6 +327,40 @@ export default function TvPage() {
     return new Set([...w.entries()].filter(([, v]) => v > 0).map(([g]) => g));
   }, [loaded, status, prefs, pool]);
 
+  // Gelikte Titel (neueste zuerst), je Ansicht gefiltert – Algorithmus-Input.
+  const likedForView = useMemo(() => {
+    const ups = Object.entries(prefs.interests ?? {}).filter(([, d]) => d === "up");
+    const scoped =
+      view === "serien"
+        ? ups.filter(([id]) => id.startsWith("tmdb-tv-"))
+        : view === "filme"
+          ? ups.filter(([id]) => id.startsWith("tmdb-movie-"))
+          : ups;
+    return scoped
+      .slice(-3)
+      .reverse()
+      .map(([id]) => {
+        const m = id.match(/^tmdb-(movie|tv)-(\d+)$/);
+        if (!m) return null;
+        return {
+          key: id,
+          media: m[1] as "movie" | "tv",
+          num: Number(m[2]),
+          name: pool.find((t) => t.id === id)?.title ?? null
+        };
+      })
+      .filter((x): x is { key: string; media: "movie" | "tv"; num: number; name: string | null } => x !== null);
+  }, [prefs.interests, view, pool]);
+
+  // Genre-Schienen nach deinen 👍 sortieren: Lieblingsgenres zuerst.
+  const genreWeightOf = useCallback(
+    (name: string) => {
+      if (!loaded || status !== "ok") return 0;
+      return genreWeights(prefs, pool).get(name) ?? 0;
+    },
+    [loaded, status, prefs, pool]
+  );
+
   // Tagesversatz: mischt die Reihenfolge jeden Tag neu, damit nicht immer
   // dieselben Titel oben stehen. Echte Daten, nur anders rotiert.
   const dayOffset = useMemo(() => {
@@ -647,6 +681,83 @@ export default function TvPage() {
     );
   }
 
+  // „Weil dir X gefällt“-Schiene: echte TMDb-Ähnlichkeiten zu deinen 👍.
+  // Gesehene und 👎-Titel fliegen raus; Name wird bei Bedarf nachgeladen.
+  function SimilarRail({
+    idNum,
+    media,
+    name,
+    titleId
+  }: {
+    idNum: number;
+    media: "movie" | "tv";
+    name: string | null;
+    titleId: string;
+  }) {
+    const [titles, setTitles] = useState<Title[] | null>(null);
+    const [label, setLabel] = useState(name);
+    const rowRef = useRef<HTMLElement | null>(null);
+    const [visible, setVisible] = useState(false);
+    useEffect(() => {
+      const el = rowRef.current;
+      if (!el || typeof IntersectionObserver === "undefined") {
+        setVisible(true);
+        return;
+      }
+      const obs = new IntersectionObserver(
+        (entries) => {
+          if (entries.some((e) => e.isIntersecting)) {
+            setVisible(true);
+            obs.disconnect();
+          }
+        },
+        { rootMargin: "600px 0px" }
+      );
+      obs.observe(el);
+      return () => obs.disconnect();
+    }, []);
+    useEffect(() => {
+      if (!visible) return;
+      let cancelled = false;
+      (async () => {
+        try {
+          if (!label) {
+            try {
+              const t = await apiTitle(titleId);
+              if (!cancelled && t) setLabel(t.title);
+            } catch {
+              // ohne Namen weiter
+            }
+          }
+          const r = await apiSimilar(idNum, media);
+          if (cancelled) return;
+          const downs = new Set(
+            Object.entries(prefs.interests ?? {})
+              .filter(([, d]) => d === "down")
+              .map(([k]) => k)
+          );
+          setTitles(
+            r.filter((t) => t.id !== titleId && !seen.includes(t.id) && !downs.has(t.id))
+          );
+        } catch {
+          if (!cancelled) setTitles([]);
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }, [visible, idNum, media, titleId]);
+    return (
+      <section aria-label="Persönliche Empfehlung" ref={rowRef as React.RefObject<HTMLElement>}>
+        {titles === null ? (
+          <p className="mt-8 text-sm text-slate-400" aria-live="polite">Persönliche Empfehlung lädt …</p>
+        ) : titles.length === 0 ? null : (
+          <Row heading={`Weil dir ${label ?? "dieser Titel"} gefällt`} titles={titles} />
+        )}
+      </section>
+    );
+  }
+
   if (status === "setup") {
     return (
       <div className="tv-root text-white">
@@ -892,9 +1003,15 @@ export default function TvPage() {
               {entdecken && entdecken.spotlight.length > 0 && (
                 <Row heading="Neu für dich – gemischt" titles={entdecken.spotlight} reasons={entdecken.reasons} />
               )}
-              {GENRE_PRESETS.slice(0, 8).map((g) => (
-                <GenreRow key={g} name={g} genreId={genreMap.find((x) => x.name === g)?.id ?? null} media="all" />
+              {likedForView.map((l) => (
+                <SimilarRail key={l.key} idNum={l.num} media={l.media} name={l.name} titleId={l.key} />
               ))}
+              {[...GENRE_PRESETS]
+                .sort((a, b) => genreWeightOf(b) - genreWeightOf(a))
+                .slice(0, 8)
+                .map((g) => (
+                  <GenreRow key={g} name={g} genreId={genreMap.find((x) => x.name === g)?.id ?? null} media="all" />
+                ))}
               <Row heading="Im Trend" titles={freshTrending} />
             </>
           ) : view === "serien" ? (
@@ -902,18 +1019,30 @@ export default function TvPage() {
               {serien && serien.spotlight.length > 0 && (
                 <Row heading="Serien für dich" titles={serien.spotlight} reasons={serien.reasons} />
               )}
-              {(genresTv.length > 0 ? genresTv.slice(0, 8) : []).map((g) => (
-                <GenreRow key={g.id} name={g.name} genreId={g.id} media="tv" />
+              {likedForView.map((l) => (
+                <SimilarRail key={l.key} idNum={l.num} media={l.media} name={l.name} titleId={l.key} />
               ))}
+              {[...genresTv]
+                .sort((a, b) => genreWeightOf(b.name) - genreWeightOf(a.name))
+                .slice(0, 8)
+                .map((g) => (
+                  <GenreRow key={g.id} name={g.name} genreId={g.id} media="tv" />
+                ))}
             </>
           ) : (
             <>
               {filme && filme.spotlight.length > 0 && (
                 <Row heading="Filme für dich" titles={filme.spotlight} reasons={filme.reasons} />
               )}
-              {(genresMovie.length > 0 ? genresMovie.slice(0, 8) : []).map((g) => (
-                <GenreRow key={g.id} name={g.name} genreId={g.id} media="movie" />
+              {likedForView.map((l) => (
+                <SimilarRail key={l.key} idNum={l.num} media={l.media} name={l.name} titleId={l.key} />
               ))}
+              {[...genresMovie]
+                .sort((a, b) => genreWeightOf(b.name) - genreWeightOf(a.name))
+                .slice(0, 8)
+                .map((g) => (
+                  <GenreRow key={g.id} name={g.name} genreId={g.id} media="movie" />
+                ))}
             </>
           )}
         </>

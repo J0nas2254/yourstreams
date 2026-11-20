@@ -109,6 +109,12 @@ export async function apiDiscover(
   return d.results ?? [];
 }
 
+/** Ähnliche Titel zu einem Film/Serie (für persönliche „Für dich“-Schienen). */
+export async function apiSimilar(tmdbId: number, mediaType: "movie" | "tv"): Promise<Title[]> {
+  const d = await getJSON<{ results: Title[] }>(`/api/similar?tmdbId=${tmdbId}&mediaType=${mediaType}`);
+  return d.results ?? [];
+}
+
 export async function apiProviders(): Promise<Provider[]> {
   const d = await getJSON<{ providers: Provider[] }>("/api/providers");
   return d.providers ?? [];

@@ -144,6 +144,15 @@ export async function enrichWithProviders(items: any[], limit = 12, overrideKey?
   return out;
 }
 
+/** Ähnliche Titel zu einem bewerteten Film/Serie (TMDb-Similar) – Algorithmus-Futter für „Für dich“. */
+export async function tmdbSimilar(mediaType: "movie" | "tv", tmdbId: number, overrideKey?: string): Promise<Title[]> {
+  const data = await tmdb(`/${mediaType}/${tmdbId}/similar`, { page: "1" }, overrideKey);
+  const items = (data?.results ?? [])
+    .filter((r: any) => typeof r?.id === "number")
+    .map((r: any) => ({ ...r, media_type: mediaType }));
+  return enrichWithProviders(items, 20, overrideKey);
+}
+
 export async function tmdbSearch(query: string, overrideKey?: string): Promise<Title[]> {
   const data = await tmdb("/search/multi", {
     query,
