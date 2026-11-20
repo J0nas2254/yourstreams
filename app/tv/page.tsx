@@ -360,15 +360,21 @@ export default function TvPage() {
     [loaded, status, unseen, likedGenres, dayOffset]
   );
   const freshTrending = useMemo(() => trending.filter((t) => !seen.includes(t.id)), [trending, seen]);
-  const filteredResults = useMemo(
-    () =>
-      results === null
-        ? null
-        : results.filter((t) =>
-            view === "serien" ? t.mediaType === "tv" : view === "filme" ? t.mediaType === "movie" : true
-          ),
-    [results, view]
-  );
+  // Auch bei Textsuche gelten Jahr/Dienste/Inklusive aus dem Filter-Panel.
+  const filteredResults = useMemo(() => {
+    if (results === null) return null;
+    const yf = fYearFrom ? Number(fYearFrom) : null;
+    const yt = fYearTo ? Number(fYearTo) : null;
+    return results.filter((t) => {
+      if (view === "serien" && t.mediaType !== "tv") return false;
+      if (view === "filme" && t.mediaType !== "movie") return false;
+      if (yf !== null && (t.year ?? 0) < yf) return false;
+      if (yt !== null && (t.year ?? 9999) > yt) return false;
+      if (fOnlyMine && !isOnMyServicesEntries(t.availability, services)) return false;
+      if (fIncluded && !t.availability.some((a) => a.kind === "flatrate" || a.kind === "free" || a.kind === "ads")) return false;
+      return true;
+    });
+  }, [results, view, fYearFrom, fYearTo, fOnlyMine, fIncluded, services]);
 
   function surprise() {
     const mine = household.filter(onMine);
@@ -377,20 +383,32 @@ export default function TvPage() {
     setDetailId(candidates[Math.floor(Math.random() * candidates.length)].id);
   }
 
-  // Filter ohne Texteingabe: Genre-Chip + Jahr + Dienste → Discover.
-  async function runTvFilter() {
+  // Genre-ID passend zur Ansicht wählen (TV-Genres haben eigene IDs).
+  function genreIdFor(name: string, want: "movie" | "tv" | "all"): number | null {
+    const primary = want === "tv" ? genresTv : want === "movie" ? genresMovie : genreMap;
+    return (
+      primary.find((x) => x.name === name)?.id ??
+      genreMap.find((x) => x.name === name)?.id ??
+      null
+    );
+  }
+
+  // Stöbern mit ALLEN Filterkriterien: Genre + Jahr + Dienste + Inklusive.
+  // Lädt automatisch die besten bis zu 220 Treffer (nach Beliebtheit).
+  async function runBrowse(genre: string | null, wantView?: View) {
+    const want = wantView ?? view;
+    const wantMedia = want === "serien" ? "tv" : want === "filme" ? "movie" : "all";
     setResultsLoading(true);
     try {
-      const gid = presetGenre ? genreMap.find((x) => x.name === presetGenre)?.id ?? null : null;
+      const gid = genre ? genreIdFor(genre, wantMedia) : null;
       const map = new Map<string, Title>();
       const provs = fOnlyMine ? services : [];
-      const want = view === "serien" ? "tv" : view === "filme" ? "movie" : "all";
       for (let page = 1; page <= 11; page += 1) {
         const r = await apiDiscover(provs, {
           genreId: gid,
           yearFrom: fYearFrom ? Number(fYearFrom) : null,
           yearTo: fYearTo ? Number(fYearTo) : null,
-          mediaType: want,
+          mediaType: wantMedia,
           page
         });
         if (r.length === 0) break;
@@ -407,6 +425,11 @@ export default function TvPage() {
     } finally {
       setResultsLoading(false);
     }
+  }
+
+  // Filter ohne Texteingabe: Genre-Chip + Jahr + Dienste → Discover.
+  function runTvFilter() {
+    void runBrowse(presetGenre);
   }
 
   function Card({ t, reason, wide }: { t: Title; reason?: string; wide?: boolean }) {
@@ -757,35 +780,15 @@ export default function TvPage() {
                 data-tv
                 type="button"
                 aria-pressed={presetGenre === g}
-                onClick={async () => {
+                onClick={() => {
                   const next = presetGenre === g ? null : g;
                   setPresetGenre(next);
                   if (!next) {
                     setResults(null);
                     return;
                   }
-                  const gid = genreMap.find((x) => x.name === next)?.id ?? null;
-                  if (gid === null) {
-                    // Fallback: lokale Filterung, falls Genreliste noch lädt
-                    setResults(pool.filter((t) => (t.genres ?? []).some((x) => x === next)));
-                    return;
-                  }
-                  setResultsLoading(true);
-                  try {
-                    const seenIds = new Map<string, Title>();
-                    const wantTv = view === "serien" ? "tv" : view === "filme" ? "movie" : "all";
-                    for (let page = 1; page <= 11; page += 1) {
-                      const r = await apiDiscover([], { genreId: gid, mediaType: wantTv, page });
-                      if (r.length === 0) break;
-                      for (const t of r) if (!seenIds.has(t.id)) seenIds.set(t.id, t);
-                      if (seenIds.size >= 220) break;
-                    }
-                    setResults([...seenIds.values()].slice(0, 220));
-                  } catch {
-                    setResults([]);
-                  } finally {
-                    setResultsLoading(false);
-                  }
+                  // Genre-Chip nutzt dieselben Filterkriterien (Jahr/Dienste/Inklusive).
+                  void runBrowse(next);
                 }}
                 className={`tv-focusable tv-chip${presetGenre === g ? " is-on" : ""}`}
               >
