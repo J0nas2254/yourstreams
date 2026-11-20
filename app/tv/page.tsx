@@ -104,6 +104,11 @@ export default function TvPage() {
   const [household, setHousehold] = useState<Title[]>([]);
   const [results, setResults] = useState<Title[] | null>(null);
   const [resultsLoading, setResultsLoading] = useState(false);
+  const [showFilter, setShowFilter] = useState(false);
+  const [fYearFrom, setFYearFrom] = useState("");
+  const [fYearTo, setFYearTo] = useState("");
+  const [fOnlyMine, setFOnlyMine] = useState(false);
+  const [fIncluded, setFIncluded] = useState(false);
   const [genreMap, setGenreMap] = useState<Genre[]>([]);
   const [providers, setProviders] = useState<{ provider_id: number; provider_name: string }[]>([]);
   const [status, setStatus] = useState<"loading" | "ok" | "setup" | "error">("loading");
@@ -368,6 +373,37 @@ export default function TvPage() {
     setDetailId(candidates[Math.floor(Math.random() * candidates.length)].id);
   }
 
+  // Filter ohne Texteingabe: Genre-Chip + Jahr + Dienste → Discover.
+  async function runTvFilter() {
+    setResultsLoading(true);
+    try {
+      const gid = presetGenre ? genreMap.find((x) => x.name === presetGenre)?.id ?? null : null;
+      const map = new Map<string, Title>();
+      const provs = fOnlyMine ? services : [];
+      const want = view === "serien" ? "tv" : view === "filme" ? "movie" : "all";
+      for (let page = 1; page <= 3; page += 1) {
+        const r = await apiDiscover(provs, {
+          genreId: gid,
+          yearFrom: fYearFrom ? Number(fYearFrom) : null,
+          yearTo: fYearTo ? Number(fYearTo) : null,
+          mediaType: want,
+          page
+        });
+        if (r.length === 0) break;
+        for (const t of r) if (!map.has(t.id)) map.set(t.id, t);
+      }
+      let list = [...map.values()];
+      if (fIncluded) {
+        list = list.filter((t) => t.availability.some((a) => a.kind === "flatrate" || a.kind === "free" || a.kind === "ads"));
+      }
+      setResults(list);
+    } catch {
+      setResults([]);
+    } finally {
+      setResultsLoading(false);
+    }
+  }
+
   function Card({ t, reason, wide }: { t: Title; reason?: string; wide?: boolean }) {
     const src = posterUrl(t.posterPath, "w342");
     return (
@@ -410,23 +446,69 @@ export default function TvPage() {
     );
   }
 
-  // Disney-Stil: Überschrift + „Mehr“-Button öffnet 10-spaltiges Raster.
-  function Row({ heading, titles, reasons }: { heading: string; titles: Title[]; reasons?: Map<string, string> }) {
+  // App-Stil: Überschrift + „Top 220“-Button lädt die besten Titel des Genres
+  // per Discover-Seiten (bis zu 220) und zeigt sie im Raster.
+  function Row({
+    heading,
+    titles,
+    reasons,
+    genreId,
+    media,
+  }: {
+    heading: string;
+    titles: Title[];
+    reasons?: Map<string, string>;
+    genreId?: number | null;
+    media?: "movie" | "tv" | "all";
+  }) {
     const [open, setOpen] = useState(false);
+    const [all, setAll] = useState<Title[] | null>(null);
+    const [loadingMore, setLoadingMore] = useState(false);
     if (titles.length === 0) return null;
+    const canExpand = titles.length > 10 || genreId != null;
+    async function toggle() {
+      if (open) {
+        setOpen(false);
+        return;
+      }
+      setOpen(true);
+      if (genreId == null || all || loadingMore) return;
+      setLoadingMore(true);
+      try {
+        const map = new Map<string, Title>();
+        for (const t of titles) map.set(t.id, t);
+        for (let page = 1; page <= 11; page += 1) {
+          try {
+            const r = await apiDiscover([], { genreId, mediaType: media ?? "all", page });
+            if (r.length === 0) break;
+            for (const t of r) if (!map.has(t.id)) map.set(t.id, t);
+            if (map.size >= 220) break;
+          } catch {
+            break;
+          }
+        }
+        setAll([...map.values()].slice(0, 220));
+      } finally {
+        setLoadingMore(false);
+      }
+    }
+    const grid = (open ? (all ?? titles) : titles).slice(0, 220);
     return (
       <section aria-label={heading} className="mt-8">
         <div className="tv-row-head">
           <h2 className="tv-row-title">{heading}</h2>
-          {titles.length > 10 && (
-            <button data-tv type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="tv-focusable tv-more-btn">
-              {open ? "Weniger" : `Mehr (${titles.length})`}
+          {canExpand && (
+            <button data-tv type="button" onClick={() => void toggle()} aria-expanded={open} className="tv-focusable tv-more-btn">
+              {open ? "Weniger" : genreId != null ? "Top 220" : `Mehr (${titles.length})`}
             </button>
           )}
         </div>
+        {loadingMore && open && (
+          <p className="mt-2 text-base text-slate-300" aria-live="polite">Lade Top 220 …</p>
+        )}
         {open ? (
           <div className="tv-grid-all">
-            {titles.map((t) => (
+            {grid.map((t) => (
               <Card key={t.id} t={t} reason={reasons?.get(t.id)} wide />
             ))}
           </div>
@@ -587,6 +669,86 @@ export default function TvPage() {
               </button>
             ))}
           </div>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <button
+              data-tv
+              type="button"
+              onClick={() => setShowFilter((v) => !v)}
+              aria-expanded={showFilter}
+              className={`tv-focusable tv-chip${showFilter ? " is-on" : ""}`}
+            >
+              ⏷ Filter{(fYearFrom || fYearTo || fOnlyMine || fIncluded) ? " ●" : ""}
+            </button>
+            {(presetGenre || fYearFrom || fYearTo || fOnlyMine || fIncluded) && (
+              <button
+                data-tv
+                type="button"
+                onClick={() => {
+                  setPresetGenre(null);
+                  setFYearFrom("");
+                  setFYearTo("");
+                  setFOnlyMine(false);
+                  setFIncluded(false);
+                  setResults(null);
+                }}
+                className="tv-focusable tv-chip"
+              >
+                Zurücksetzen
+              </button>
+            )}
+          </div>
+          {showFilter && (
+            <div className="tv-filter-panel">
+              <label className="tv-filter-field">
+                <span>Jahr von</span>
+                <input
+                  data-tv
+                  value={fYearFrom}
+                  onChange={(e) => setFYearFrom(e.target.value)}
+                  inputMode="numeric"
+                  placeholder="z. B. 2015"
+                  className="tv-focusable tv-input"
+                />
+              </label>
+              <label className="tv-filter-field">
+                <span>Jahr bis</span>
+                <input
+                  data-tv
+                  value={fYearTo}
+                  onChange={(e) => setFYearTo(e.target.value)}
+                  inputMode="numeric"
+                  placeholder="z. B. 2024"
+                  className="tv-focusable tv-input"
+                />
+              </label>
+              <button
+                data-tv
+                type="button"
+                onClick={() => setFOnlyMine((v) => !v)}
+                aria-pressed={fOnlyMine}
+                className={`tv-focusable tv-chip${fOnlyMine ? " is-on" : ""}`}
+              >
+                {fOnlyMine ? "✓ " : ""}Auf meinen Diensten
+              </button>
+              <button
+                data-tv
+                type="button"
+                onClick={() => setFIncluded((v) => !v)}
+                aria-pressed={fIncluded}
+                className={`tv-focusable tv-chip${fIncluded ? " is-on" : ""}`}
+              >
+                {fIncluded ? "✓ " : ""}Nur inklusive
+              </button>
+              <button
+                data-tv
+                type="button"
+                onClick={() => void runTvFilter()}
+                className="tv-focusable tv-btn bg-white text-black"
+              >
+                Filtern – ohne Text
+              </button>
+            </div>
+          )}
           {resultsLoading ? (
             <p className="mt-6 text-lg text-slate-300" aria-live="polite">Genre wird geladen …</p>
           ) : filteredResults !== null ? (
@@ -607,7 +769,7 @@ export default function TvPage() {
                 <Row heading="Neu für dich – gemischt" titles={entdecken.spotlight} reasons={entdecken.reasons} />
               )}
               {entdecken?.genreRails.map((r) => (
-                <Row key={r.heading} heading={r.heading} titles={r.titles} />
+                <Row key={r.heading} heading={r.heading} titles={r.titles} genreId={genreMap.find((x) => x.name === r.heading)?.id ?? null} media="all" />
               ))}
               <Row heading="Im Trend" titles={freshTrending} />
             </>
@@ -617,7 +779,7 @@ export default function TvPage() {
                 <Row heading="Serien für dich" titles={serien.spotlight} reasons={serien.reasons} />
               )}
               {serien?.genreRails.map((r) => (
-                <Row key={r.heading} heading={r.heading} titles={r.titles} />
+                <Row key={r.heading} heading={r.heading} titles={r.titles} genreId={genreMap.find((x) => x.name === r.heading)?.id ?? null} media="tv" />
               ))}
             </>
           ) : (
@@ -626,7 +788,7 @@ export default function TvPage() {
                 <Row heading="Filme für dich" titles={filme.spotlight} reasons={filme.reasons} />
               )}
               {filme?.genreRails.map((r) => (
-                <Row key={r.heading} heading={r.heading} titles={r.titles} />
+                <Row key={r.heading} heading={r.heading} titles={r.titles} genreId={genreMap.find((x) => x.name === r.heading)?.id ?? null} media="movie" />
               ))}
             </>
           )}

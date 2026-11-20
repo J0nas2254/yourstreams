@@ -71,7 +71,7 @@ function GenreRail({
           aria-expanded={open}
           className="shrink-0 rounded-full border border-white/20 bg-white px-4 py-1 text-sm font-bold text-black hover:bg-neutral-200"
         >
-          {open ? "Weniger" : "Mehr"}
+                      {open ? "Weniger" : `Top 220 ${heading}`}
         </button>
       </div>
       {open ? (
@@ -260,14 +260,10 @@ export default function HomePage() {
 
   return (
     <div className="space-y-2">
-      <section className="rounded-3xl border border-white/10 bg-ink-800/60 p-5 sm:p-6">
-        <h1 className="text-2xl font-black text-white sm:text-3xl">Was läuft heute bei dir?</h1>
-        <p className="mt-1 max-w-2xl text-sm text-slate-300">
-          Echte Verfügbarkeiten deiner Haushalts-Abos in Deutschland (DE). Zum Anschauen wirst du zum Anbieter
-          weitergeleitet – nichts wird in dieser App abgespielt.
-        </p>
+      <section className="rounded-2xl border border-white/10 bg-ink-800/60 p-4 sm:p-5">
+        <h1 className="text-xl font-black text-white sm:text-2xl">Was läuft heute bei dir?</h1>
         <form
-          className="mt-4 flex flex-col gap-2 sm:flex-row"
+          className="mt-3 flex flex-col gap-2 sm:flex-row"
           role="search"
           aria-label="Titel suchen"
           onSubmit={(e) => {
@@ -283,16 +279,16 @@ export default function HomePage() {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Film oder Serie suchen …"
-            className="w-full flex-1 rounded-2xl border border-white/15 bg-ink-950 px-4 py-3 text-white placeholder:text-slate-500"
+            className="w-full flex-1 rounded-xl border border-white/15 bg-ink-950 px-3 py-2 text-sm text-white placeholder:text-slate-500"
           />
-          <button type="submit" className="rounded-2xl bg-white px-6 py-3 font-extrabold text-slate-900">
+          <button type="submit" className="rounded-xl bg-white px-4 py-2 text-sm font-extrabold text-slate-900">
             Suchen
           </button>
           <button
             type="button"
             onClick={surprise}
             disabled={pool.length === 0}
-            className="rounded-2xl bg-gold-400 px-6 py-3 font-extrabold text-slate-900 disabled:opacity-40"
+            className="rounded-xl bg-gold-400 px-4 py-2 text-sm font-extrabold text-slate-900 disabled:opacity-40"
           >
             Überrasch mich
           </button>
