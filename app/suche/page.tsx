@@ -201,13 +201,20 @@ function SucheInner() {
     try {
       const providersForBrowse = onlyMine ? prefs.services : [];
       const gid = [...genres, ...genresTv].find((g) => g.name === genreName)?.id ?? null;
-      const r = await apiDiscover(providersForBrowse, {
-        genreId: gid,
-        yearFrom: yearFrom ? Number(yearFrom) : null,
-        yearTo: yearTo ? Number(yearTo) : null,
-        mediaType: nextType
-      });
-      setResults(r);
+      const map = new Map<string, (typeof results)[number]>();
+      for (let page = 1; page <= 11; page += 1) {
+        const r = await apiDiscover(providersForBrowse, {
+          genreId: gid,
+          yearFrom: yearFrom ? Number(yearFrom) : null,
+          yearTo: yearTo ? Number(yearTo) : null,
+          mediaType: nextType,
+          page
+        });
+        if (r.length === 0) break;
+        for (const t of r) if (!map.has(t.id)) map.set(t.id, t);
+        if (map.size >= 220) break;
+      }
+      setResults([...map.values()].slice(0, 220));
       setStatus("ok");
     } catch (e) {
       if (e instanceof ApiError && e.notConfigured) setStatus("setup");

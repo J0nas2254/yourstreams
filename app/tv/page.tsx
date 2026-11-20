@@ -381,7 +381,7 @@ export default function TvPage() {
       const map = new Map<string, Title>();
       const provs = fOnlyMine ? services : [];
       const want = view === "serien" ? "tv" : view === "filme" ? "movie" : "all";
-      for (let page = 1; page <= 3; page += 1) {
+      for (let page = 1; page <= 11; page += 1) {
         const r = await apiDiscover(provs, {
           genreId: gid,
           yearFrom: fYearFrom ? Number(fYearFrom) : null,
@@ -391,8 +391,9 @@ export default function TvPage() {
         });
         if (r.length === 0) break;
         for (const t of r) if (!map.has(t.id)) map.set(t.id, t);
+        if (map.size >= 220) break;
       }
-      let list = [...map.values()];
+      let list = [...map.values()].slice(0, 220);
       if (fIncluded) {
         list = list.filter((t) => t.availability.some((a) => a.kind === "flatrate" || a.kind === "free" || a.kind === "ads"));
       }
@@ -412,7 +413,7 @@ export default function TvPage() {
         type="button"
         onClick={() => setDetailId(t.id)}
         aria-label={`${t.title} – Details ansehen`}
-        className={`tv-focusable tv-card text-left ${wide ? "w-full" : "w-44 shrink-0 snap-start md:w-52"}`}
+        className={`tv-focusable tv-card text-left ${wide ? "w-full" : "w-36 shrink-0 snap-start md:w-44"}`}
       >
         <div className="relative aspect-[2/3] w-full bg-neutral-800">
           {src ? (
@@ -651,12 +652,13 @@ export default function TvPage() {
                   try {
                     const seenIds = new Map<string, Title>();
                     const wantTv = view === "serien" ? "tv" : view === "filme" ? "movie" : "all";
-                    for (let page = 1; page <= 3; page += 1) {
+                    for (let page = 1; page <= 11; page += 1) {
                       const r = await apiDiscover([], { genreId: gid, mediaType: wantTv, page });
                       if (r.length === 0) break;
                       for (const t of r) if (!seenIds.has(t.id)) seenIds.set(t.id, t);
+                      if (seenIds.size >= 220) break;
                     }
-                    setResults([...seenIds.values()]);
+                    setResults([...seenIds.values()].slice(0, 220));
                   } catch {
                     setResults([]);
                   } finally {
@@ -752,7 +754,7 @@ export default function TvPage() {
           {resultsLoading ? (
             <p className="mt-6 text-lg text-slate-300" aria-live="polite">Genre wird geladen …</p>
           ) : filteredResults !== null ? (
-            <Row heading={filteredResults.length === 0 ? "Keine Ergebnisse" : `Suchergebnisse (${filteredResults.length})`} titles={filteredResults} />
+            <Row heading={filteredResults.length === 0 ? "Keine Ergebnisse" : `Top ${filteredResults.length}${presetGenre ? ` · ${presetGenre}` : ""}`} titles={filteredResults} />
           ) : view === "entdecken" ? (
             <>
               {continueWatching.length > 0 && (
