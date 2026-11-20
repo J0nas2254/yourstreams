@@ -20,6 +20,8 @@ export default function TitleRow({
   emptyText?: string;
 }) {
   const [expanded, setExpanded] = useState(false);
+  // Hooks immer vor dem frühen Return aufrufen (Rules of Hooks).
+  const listRef = useRef<HTMLUListElement>(null);
   if (titles.length === 0) {
     return (
       <section aria-label={heading} className="mt-8">
@@ -28,7 +30,6 @@ export default function TitleRow({
       </section>
     );
   }
-  const listRef = useRef<HTMLUListElement>(null);
 
   function scrollByPage(dir: 1 | -1) {
     const el = listRef.current;
