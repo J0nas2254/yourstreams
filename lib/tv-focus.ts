@@ -5,8 +5,16 @@
 // Funktioniert ohne Touchscreen und ohne zusätzliche Abhängigkeiten.
 import { useEffect } from "react";
 
+function dialogScope(): HTMLElement | null {
+  return document.querySelector<HTMLElement>('[role="dialog"]');
+}
+
 function focusables(root: Document | HTMLElement): HTMLElement[] {
-  const els = Array.from(root.querySelectorAll<HTMLElement>("[data-tv]"));
+  // Wenn eine Film-Info offen ist, bleibt der Fokus darin:
+  // Hintergrund-Buttons sind dann nicht erreichbar und bewegen sich nicht mit.
+  const scope = dialogScope();
+  const queryRoot: Document | HTMLElement = scope ?? root;
+  const els = Array.from(queryRoot.querySelectorAll<HTMLElement>("[data-tv]"));
   return els.filter((el) => {
     const r = el.getBoundingClientRect();
     if (r.width === 0 && r.height === 0) return false;
@@ -21,7 +29,8 @@ function center(r: DOMRect) {
 }
 
 function bestInDirection(current: HTMLElement, dir: "up" | "down" | "left" | "right"): HTMLElement | null {
-  const all = focusables(document);
+  const scope = dialogScope();
+  const all = focusables(scope ?? document);
   const c = center(current.getBoundingClientRect());
   let best: HTMLElement | null = null;
   let bestScore = Infinity;

@@ -7,7 +7,8 @@ import { ApiError, apiDiscover, apiImdbRating, apiProviders, apiSeasonEpisodes, 
 import { isOnMyServicesEntries, usePrefs } from "@/lib/store";
 import { nextUnseenEpisode, scoreTitles } from "@/lib/prefs.ts";
 import EpisodeTracker, { useSeriesEpisodes } from "@/components/episode-tracker";
-import { backdropUrl, posterUrl } from "@/lib/images";
+import { posterUrl } from "@/lib/images";
+import { AVAILABILITY_LABELS } from "@/lib/types";
 import { useTvFocus } from "@/lib/tv-focus";
 import ImdbBadge from "@/components/imdb-badge";
 import TitleActions from "@/components/title-actions";
@@ -148,6 +149,19 @@ export default function TvPage() {
     return () => window.clearTimeout(t);
   }, [status, detailId, tab]);
 
+  // Wenn die Film-Info aufgeht, Fokus in den Dialog holen.
+  // Zusammen mit der Fokus-Falle in lib/tv-focus.ts bewegt sich
+  // dadurch nichts mehr im Hintergrund mit.
+  useEffect(() => {
+    if (!detailId || !detail) return;
+    const t = window.setTimeout(() => {
+      document
+        .querySelector<HTMLElement>('[role="dialog"] [data-tv]')
+        ?.focus({ preventScroll: true });
+    }, 80);
+    return () => window.clearTimeout(t);
+  }, [detailId, detail]);
+
   const tvIsSeries = detail?.mediaType === "tv";
   const tvSeasons = tvIsSeries ? detail?.tvInfo?.seasons ?? [] : [];
   const tvSeries = useSeriesEpisodes(detailId ?? "", tvIsSeries ? detail?.tmdbId : undefined, tvSeasons);
@@ -234,11 +248,6 @@ export default function TvPage() {
   );
 
   const shownSuchen = results ?? trending;
-  const hero = useMemo(
-    () => trending.find((t) => t.backdropPath) ?? trending[0] ?? null,
-    [trending]
-  );
-  const heroBg = hero ? backdropUrl(hero.backdropPath, "w1280") : null;
 
   function surprise() {
     const mine = household.filter(onMine);
@@ -380,41 +389,6 @@ export default function TvPage() {
         </ol>
       </section>
 
-      {hero && tab === "suchen" && (
-        <section aria-label="Empfehlung" className="relative mb-2 overflow-hidden rounded-3xl border border-white/10">
-          <div className="relative aspect-[21/8] w-full">
-            {heroBg && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={heroBg} alt="" aria-hidden className="absolute inset-0 h-full w-full object-cover" />
-            )}
-            <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-[#070b16] via-transparent to-transparent" />
-            <div aria-hidden className="absolute inset-0 bg-gradient-to-r from-[#070b16]/80 via-transparent to-transparent" />
-            <div className="absolute bottom-0 left-0 max-w-2xl p-5">
-              <p className="text-sm font-bold uppercase tracking-wider text-gold-300">Empfehlung des Tages</p>
-              <h2 className="text-glow mt-1 text-3xl font-black">{hero.title}</h2>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button
-                  data-tv
-                  type="button"
-                  onClick={() => setDetailId(hero.id)}
-                  className="tv-focusable rounded-xl bg-white px-5 py-2.5 text-lg font-extrabold text-slate-900"
-                >
-                  Details ansehen
-                </button>
-                <button
-                  data-tv
-                  type="button"
-                  onClick={surprise}
-                  className="tv-focusable rounded-xl bg-gold-400 px-5 py-2.5 text-lg font-extrabold text-slate-900"
-                >
-                  Überrasch mich
-                </button>
-              </div>
-            </div>
-          </div>
-        </section>
-      )}
-
       <nav aria-label="TV-Bereiche" className="mb-2 flex flex-wrap gap-2">
         {TABS.map((t) => (
           <button
@@ -457,6 +431,15 @@ export default function TvPage() {
             />
             <button data-tv type="submit" className="tv-focusable rounded-xl bg-white px-5 py-2.5 text-lg font-extrabold text-slate-900">
               Suchen
+            </button>
+            <button
+              data-tv
+              type="button"
+              onClick={surprise}
+              disabled={pool.length === 0}
+              className="tv-focusable rounded-xl bg-gold-400 px-5 py-2.5 text-lg font-extrabold text-slate-900 disabled:opacity-40"
+            >
+              Überrasch mich
             </button>
           </form>
           {results !== null && (
@@ -545,11 +528,27 @@ export default function TvPage() {
               </p>
             ) : (
               <div className="mt-3 flex flex-wrap gap-2">
-                {detail.availability.filter((a, i, arr) => arr.findIndex((b) => b.provider_id === a.provider_id && b.kind === a.kind) === i).map((a, i) => (
-                  <span key={`${a.provider_id}-${i}`} className="rounded-full bg-white/10 px-3 py-1 text-sm">
-                    {a.provider_name} · {a.kind === "flatrate" ? "Abo" : a.kind === "free" ? "Kostenlos" : a.kind === "ads" ? "Werbung" : a.kind === "rent" ? "Leihen" : "Kaufen"}
-                  </span>
-                ))}
+                {detail.availability
+                  .filter((a, i, arr) => arr.findIndex((b) => b.provider_id === a.provider_id && b.kind === a.kind) === i)
+                  .map((a, i) => {
+                    const label = AVAILABILITY_LABELS[a.kind] ?? a.kind;
+                    return detail.justWatchLink ? (
+                      <button
+                        key={`${a.provider_id}-${i}`}
+                        data-tv
+                        type="button"
+                        onClick={() => detail.justWatchLink && openExternal(detail.justWatchLink)}
+                        aria-label={`„${detail.title}“ bei ${a.provider_name} ansehen (${label})`}
+                        className="tv-focusable rounded-xl bg-blue-600 px-4 py-2 text-base font-bold text-white"
+                      >
+                        Bei {a.provider_name} ansehen · {label} ↗
+                      </button>
+                    ) : (
+                      <span key={`${a.provider_id}-${i}`} className="rounded-full bg-white/10 px-3 py-1 text-sm">
+                        {a.provider_name} · {label}
+                      </span>
+                    );
+                  })}
               </div>
             )}
             <div className="mt-6">
@@ -585,16 +584,6 @@ export default function TvPage() {
               />
             )}
             <div className="mt-4 flex flex-wrap gap-2">
-              {detail.justWatchLink ? (
-                <button
-                  data-tv
-                  type="button"
-                  onClick={() => detail.justWatchLink && openExternal(detail.justWatchLink)}
-                  className="tv-focusable rounded-xl bg-blue-600 px-5 py-2.5 text-lg font-bold text-white"
-                >
-                  Watch-Option öffnen ↗
-                </button>
-              ) : null}
               <button
                 data-tv
                 type="button"
