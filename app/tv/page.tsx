@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Browser } from "@capacitor/browser";
-import type { Title } from "@/lib/types";
-import { ApiError, apiDiscover, apiImdbRating, apiProviders, apiSeasonEpisodes, apiTitle, apiTrending, isCapacitorAndroid } from "@/lib/api.ts";
+import type { Genre, Title } from "@/lib/types";
+import { ApiError, apiDiscover, apiGenres, apiImdbRating, apiProviders, apiSeasonEpisodes, apiTitle, apiTrending, isCapacitorAndroid } from "@/lib/api.ts";
 import { isOnMyServicesEntries, usePrefs } from "@/lib/store";
 import { genreWeights, nextUnseenEpisode } from "@/lib/prefs.ts";
 import EpisodeTracker, { useSeriesEpisodes } from "@/components/episode-tracker";
@@ -103,6 +103,8 @@ export default function TvPage() {
   const [trending, setTrending] = useState<Title[]>([]);
   const [household, setHousehold] = useState<Title[]>([]);
   const [results, setResults] = useState<Title[] | null>(null);
+  const [resultsLoading, setResultsLoading] = useState(false);
+  const [genreMap, setGenreMap] = useState<Genre[]>([]);
   const [providers, setProviders] = useState<{ provider_id: number; provider_name: string }[]>([]);
   const [status, setStatus] = useState<"loading" | "ok" | "setup" | "error">("loading");
   const [detailId, setDetailId] = useState<string | null>(null);
@@ -112,11 +114,14 @@ export default function TvPage() {
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([apiTrending(), apiProviders()])
-      .then(([t, p]) => {
+    Promise.all([apiTrending(), apiProviders(), apiGenres().catch(() => ({ movie: [], tv: [] }))])
+      .then(([t, p, g]) => {
         if (cancelled) return;
         setTrending(t);
         setProviders(p);
+        const merged = new Map<string, Genre>();
+        for (const x of [...g.movie, ...g.tv]) if (!merged.has(x.name)) merged.set(x.name, x);
+        setGenreMap([...merged.values()]);
         setStatus("ok");
       })
       .catch((e) => {
@@ -547,13 +552,33 @@ export default function TvPage() {
                 data-tv
                 type="button"
                 aria-pressed={presetGenre === g}
-                onClick={() => {
+                onClick={async () => {
                   const next = presetGenre === g ? null : g;
                   setPresetGenre(next);
-                  if (next) {
-                    setResults(pool.filter((t) => (t.genres ?? []).some((x) => x.toLowerCase().includes(next.toLowerCase().slice(0, 4)) || x === next)));
-                  } else {
+                  if (!next) {
                     setResults(null);
+                    return;
+                  }
+                  const gid = genreMap.find((x) => x.name === next)?.id ?? null;
+                  if (gid === null) {
+                    // Fallback: lokale Filterung, falls Genreliste noch lädt
+                    setResults(pool.filter((t) => (t.genres ?? []).some((x) => x === next)));
+                    return;
+                  }
+                  setResultsLoading(true);
+                  try {
+                    const seenIds = new Map<string, Title>();
+                    const wantTv = view === "serien" ? "tv" : view === "filme" ? "movie" : "all";
+                    for (let page = 1; page <= 3; page += 1) {
+                      const r = await apiDiscover([], { genreId: gid, mediaType: wantTv, page });
+                      if (r.length === 0) break;
+                      for (const t of r) if (!seenIds.has(t.id)) seenIds.set(t.id, t);
+                    }
+                    setResults([...seenIds.values()]);
+                  } catch {
+                    setResults([]);
+                  } finally {
+                    setResultsLoading(false);
                   }
                 }}
                 className={`tv-focusable tv-chip${presetGenre === g ? " is-on" : ""}`}
@@ -562,8 +587,10 @@ export default function TvPage() {
               </button>
             ))}
           </div>
-          {filteredResults !== null ? (
-            <Row heading={filteredResults.length === 0 ? "Keine Ergebnisse" : "Suchergebnisse"} titles={filteredResults} />
+          {resultsLoading ? (
+            <p className="mt-6 text-lg text-slate-300" aria-live="polite">Genre wird geladen …</p>
+          ) : filteredResults !== null ? (
+            <Row heading={filteredResults.length === 0 ? "Keine Ergebnisse" : `Suchergebnisse (${filteredResults.length})`} titles={filteredResults} />
           ) : view === "entdecken" ? (
             <>
               {continueWatching.length > 0 && (

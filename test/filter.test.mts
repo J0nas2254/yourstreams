@@ -58,8 +58,13 @@ test("applySearchFilters: Typ, Genre, Jahr, Anbieter, inklusive, IMDb", () => {
   assert.deepEqual(applySearchFilters(titles, { ...base, providerId: 999 }).map((x) => x.id), []);
   assert.deepEqual(applySearchFilters(titles, { ...base, includedOnly: true }).map((x) => x.id), ["b"]);
   const imdb = new Map([["a", 8.1]]);
+  // Unbekannte Wertung (b) bleibt sichtbar, nur sicher schlechte fliegen raus.
   assert.deepEqual(
     applySearchFilters(titles, { ...base, minImdb: 8, imdbById: imdb }).map((x) => x.id),
+    ["a", "b"]
+  );
+  assert.deepEqual(
+    applySearchFilters(titles, { ...base, minImdb: 8, imdbById: new Map([["a", 8.1], ["b", 5.2]]) }).map((x) => x.id),
     ["a"]
   );
 });

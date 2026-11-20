@@ -31,8 +31,9 @@ export async function GET(req: Request) {
   const genreId = num(url.searchParams.get("genreId"));
   const yearFrom = num(url.searchParams.get("yearFrom"));
   const yearTo = num(url.searchParams.get("yearTo"));
+  const page = num(url.searchParams.get("page"));
   try {
-    const results = await tmdbDiscoverByProviders(ids, localKey, { genreId, yearFrom, yearTo, mediaType });
+    const results = await tmdbDiscoverByProviders(ids, localKey, { genreId, yearFrom, yearTo, mediaType, page });
     return apiJson({ configured: true, results });
   } catch {
     return apiJson(

@@ -109,10 +109,37 @@ async function withProviders(t: Title, overrideKey?: string): Promise<Title> {
   }
 }
 
+// Genre-ID -> Name (Film- + Serien-Genres vereint), kurz gecacht pro Key.
+let genreMapCache: { key: string; at: number; map: Map<number, string> } | null = null;
+async function genreNameMap(overrideKey?: string): Promise<Map<number, string>> {
+  const key = tmdbKey(overrideKey);
+  if (genreMapCache && genreMapCache.key === key && Date.now() - genreMapCache.at < 3600_000) {
+    return genreMapCache.map;
+  }
+  const map = new Map<number, string>();
+  try {
+    const g = await tmdbGenres(overrideKey);
+    for (const genre of [...g.movie, ...g.tv]) {
+      if (!map.has(genre.id)) map.set(genre.id, genre.name);
+    }
+  } catch {
+    // ohne Namen weiterarbeiten – Filter fallen dann nicht alles raus
+  }
+  genreMapCache = { key, at: Date.now(), map };
+  return map;
+}
+
 export async function enrichWithProviders(items: any[], limit = 12, overrideKey?: string): Promise<Title[]> {
+  const names = await genreNameMap(overrideKey);
   const out: Title[] = [];
   for (const item of items.slice(0, limit)) {
-    out.push(await withProviders(baseTitle(item), overrideKey));
+    const base = baseTitle(item);
+    if (base.genres.length === 0 && Array.isArray(base.genreIds)) {
+      base.genres = base.genreIds
+        .map((id) => names.get(id))
+        .filter((n): n is string => typeof n === "string");
+    }
+    out.push(await withProviders(base, overrideKey));
   }
   return out;
 }
@@ -143,6 +170,8 @@ export interface DiscoverOptions {
   yearFrom?: number | null;
   yearTo?: number | null;
   mediaType?: "movie" | "tv" | "all";
+  /** TMDb-Seite (1-basiert) für „Mehr“-Ansichten mit bis zu 220 Titeln. */
+  page?: number | null;
 }
 
 export async function tmdbDiscoverByProviders(
@@ -168,11 +197,14 @@ export async function tmdbDiscoverByProviders(
     typeof opts?.yearTo === "number" && Number.isFinite(opts.yearTo)
       ? `${opts.yearTo}-12-31`
       : undefined;
+  const pageNum = typeof opts?.page === "number" && Number.isFinite(opts.page)
+    ? Math.min(11, Math.max(1, Math.floor(opts.page)))
+    : 1;
   const movieParams: Record<string, string> = {
     watch_region: "DE",
     with_watch_monetization_types: monetization,
     sort_by: "popularity.desc",
-    page: "1",
+    page: String(pageNum),
     include_adult: "false"
   };
   const tvParams: Record<string, string> = { ...movieParams };

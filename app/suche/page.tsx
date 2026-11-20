@@ -26,7 +26,7 @@ function SucheInner() {
   const [yearTo, setYearTo] = useState("");
   const [includedOnly, setIncludedOnly] = useState(false);
   const [minImdb, setMinImdb] = useState("");
-  const [seenFilter, setSeenFilter] = useState<"all" | "unseen" | "seen">("unseen");
+  const [seenFilter, setSeenFilter] = useState<"all" | "unseen" | "seen">("all");
   const [genres, setGenres] = useState<Genre[]>([]);
   const [genresTv, setGenresTv] = useState<Genre[]>([]);
   const [imdbById, setImdbById] = useState<Map<string, number | null>>(new Map());
@@ -192,14 +192,15 @@ function SucheInner() {
   const QUICK_GENRES = ["Action", "Abenteuer", "Animation", "Komödie", "Krimi", "Drama", "Fantasy", "Horror", "Romantik", "Science-Fiction", "Thriller"];
 
   async function quickBrowse(nextGenre: string, nextType: typeof mediaType) {
-    setGenre(nextGenre);
+    if (nextGenre) setGenre(nextGenre);
     setMediaType(nextType);
+    const genreName = nextGenre || genre;
     setQ("");
     setStatus("loading");
     setMode("browse");
     try {
       const providersForBrowse = onlyMine ? prefs.services : [];
-      const gid = [...genres, ...genresTv].find((g) => g.name === nextGenre)?.id ?? null;
+      const gid = [...genres, ...genresTv].find((g) => g.name === genreName)?.id ?? null;
       const r = await apiDiscover(providersForBrowse, {
         genreId: gid,
         yearFrom: yearFrom ? Number(yearFrom) : null,

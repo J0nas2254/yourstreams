@@ -3,20 +3,108 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type { Title } from "@/lib/types";
-import { ApiError, apiDiscover, apiSeasonEpisodes, apiTitle, apiTrending } from "@/lib/api.ts";
+import type { Genre, Title } from "@/lib/types";
+import { ApiError, apiDiscover, apiGenres, apiSeasonEpisodes, apiTitle, apiTrending } from "@/lib/api.ts";
 import { nextUnseenEpisode } from "@/lib/prefs.ts";
 import { isOnMyServicesEntries, usePrefs } from "@/lib/store";
 import { scoreTitles } from "@/lib/prefs.ts";
 import Hero from "@/components/hero";
 import SetupNotice from "@/components/setup-notice";
 import TitleRow from "@/components/title-row";
+import PosterCard from "@/components/poster-card";
+
+/** Eine Genre-Schiene: Vorschaureihe + „Mehr“ lädt die besten ~220 per Discover-Seiten. */
+function GenreRail({
+  heading,
+  genreId,
+  preview,
+  onMyServicesIds,
+  seenIds,
+}: {
+  heading: string;
+  genreId: number | null;
+  preview: Title[];
+  onMyServicesIds?: Set<string>;
+  seenIds?: Set<string>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [all, setAll] = useState<Title[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [failed, setFailed] = useState(false);
+  if (preview.length === 0) return null;
+
+  async function openMore() {
+    setOpen(true);
+    if (all || loading || genreId === null) return;
+    setLoading(true);
+    setFailed(false);
+    try {
+      const seen = new Map<string, Title>();
+      for (const t of preview) seen.set(t.id, t);
+      // TMDb-Discover: ~20 Treffer/Seite → Seiten 1..11 ≈ bis zu 220 Titel.
+      for (let page = 1; page <= 11; page += 1) {
+        try {
+          const r = await apiDiscover([], { genreId, page });
+          if (r.length === 0) break;
+          for (const t of r) if (!seen.has(t.id)) seen.set(t.id, t);
+          if (seen.size >= 220) break;
+        } catch {
+          break;
+        }
+      }
+      setAll([...seen.values()].slice(0, 220));
+    } catch {
+      setFailed(true);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const grid = (all ?? preview).slice(0, 220);
+  return (
+    <section aria-label={heading} className="mt-8">
+      <div className="flex items-center justify-between gap-2 px-1">
+        <h2 className="text-lg font-extrabold text-white sm:text-xl">{heading}</h2>
+        <button
+          type="button"
+          onClick={() => (open ? setOpen(false) : void openMore())}
+          aria-expanded={open}
+          className="shrink-0 rounded-full border border-white/20 bg-white px-4 py-1 text-sm font-bold text-black hover:bg-neutral-200"
+        >
+          {open ? "Weniger" : "Mehr"}
+        </button>
+      </div>
+      {open ? (
+        <div className="mt-3">
+          {loading && <p className="px-1 text-sm text-slate-400">Lade die besten Titel …</p>}
+          {failed && <p className="px-1 text-sm text-slate-400">Konnte nicht alle laden – zeige die Vorschau.</p>}
+          <ul className="sf-grid-all mt-2" aria-label={`${heading} – alle Titel`}>
+            {grid.map((t) => (
+              <li key={t.id} className="min-w-0">
+                <PosterCard title={t} onMyServices={onMyServicesIds?.has(t.id)} seen={seenIds?.has(t.id)} />
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : (
+        <ul className="no-scrollbar -mx-1 mt-3 flex snap-x gap-3 overflow-x-auto px-1 pb-2">
+          {preview.slice(0, 12).map((t) => (
+            <li key={t.id} className="shrink-0 snap-start">
+              <PosterCard title={t} onMyServices={onMyServicesIds?.has(t.id)} seen={seenIds?.has(t.id)} />
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
 
 export default function HomePage() {
   const router = useRouter();
   const [q, setQ] = useState("");
   const [trending, setTrending] = useState<Title[]>([]);
   const [household, setHousehold] = useState<Title[]>([]);
+  const [genres, setGenres] = useState<Genre[]>([]);
   const [hero, setHero] = useState<Title | null>(null);
   const [status, setStatus] = useState<"loading" | "ok" | "setup" | "error">("loading");
   const [errorMsg, setErrorMsg] = useState("");
@@ -28,9 +116,15 @@ export default function HomePage() {
     async function load() {
       setStatus("loading");
       try {
-        const t = await apiTrending();
+        const [t, g] = await Promise.all([
+          apiTrending(),
+          apiGenres().catch(() => ({ movie: [], tv: [] })),
+        ]);
         if (cancelled) return;
         setTrending(t);
+        const merged = new Map<string, Genre>();
+        for (const x of [...g.movie, ...g.tv]) if (!merged.has(x.name)) merged.set(x.name, x);
+        setGenres([...merged.values()].sort((a, b) => a.name.localeCompare(b.name, "de")));
         // Hero mit vollständigen Details (inkl. IMDb-ID) anreichern
         const pick = t.find((x) => x.backdropPath) ?? t[0];
         if (pick) {
@@ -142,6 +236,21 @@ export default function HomePage() {
     [household, prefs.services]
   );
 
+  // Genre-Schienen aus echten geladenen Titeln (nach Häufigkeit sortiert).
+  const genreRails = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const t of pool) for (const g of t.genres ?? []) counts.set(g, (counts.get(g) ?? 0) + 1);
+    return [...counts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([name]) => ({
+        name,
+        id: genres.find((g) => g.name === name)?.id ?? null,
+        titles: pool.filter((t) => (t.genres ?? []).includes(name)),
+      }))
+      .filter((r) => r.titles.length >= 2)
+      .slice(0, 12);
+  }, [pool, genres]);
+
   function surprise() {
     const candidates = householdOnlyMine.length > 0 ? householdOnlyMine : pool.filter((t) => !seen.includes(t.id));
     if (candidates.length === 0) return;
@@ -151,14 +260,14 @@ export default function HomePage() {
 
   return (
     <div className="space-y-2">
-      <section className="rounded-3xl border border-white/10 bg-ink-800/60 p-5 sm:p-8">
-        <h1 className="text-2xl font-black text-white sm:text-4xl">Was läuft heute bei dir?</h1>
-        <p className="mt-2 max-w-2xl text-sm text-slate-300 sm:text-base">
+      <section className="rounded-3xl border border-white/10 bg-ink-800/60 p-5 sm:p-6">
+        <h1 className="text-2xl font-black text-white sm:text-3xl">Was läuft heute bei dir?</h1>
+        <p className="mt-1 max-w-2xl text-sm text-slate-300">
           Echte Verfügbarkeiten deiner Haushalts-Abos in Deutschland (DE). Zum Anschauen wirst du zum Anbieter
           weitergeleitet – nichts wird in dieser App abgespielt.
         </p>
         <form
-          className="mt-5 flex flex-col gap-2 sm:flex-row"
+          className="mt-4 flex flex-col gap-2 sm:flex-row"
           role="search"
           aria-label="Titel suchen"
           onSubmit={(e) => {
@@ -256,6 +365,17 @@ export default function HomePage() {
           )}
 
           <TitleRow heading="Im Trend" titles={trending} onMyServicesIds={onMineIds} seenIds={seenSet} />
+
+          {genreRails.map((r) => (
+            <GenreRail
+              key={r.name}
+              heading={r.name}
+              genreId={r.id}
+              preview={r.titles}
+              onMyServicesIds={onMineIds}
+              seenIds={seenSet}
+            />
+          ))}
 
           {watchlist.length > 0 && (
             <TitleRow

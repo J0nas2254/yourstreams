@@ -221,7 +221,9 @@ export function applySearchFilters(titles: Title[], f: SearchFilters): Title[] {
     if (f.includedOnly && !t.availability.some((a) => INCLUDED.has(a.kind))) return false;
     if (typeof f.minImdb === "number") {
       const r = f.imdbById?.get(t.id);
-      if (typeof r !== "number" || r < (f.minImdb as number)) return false;
+      // Nur sicher schlechte (bekannte) Wertungen filtern – unbekannte Titel
+      // behalten, sonst steht bei frischen Discover-Ergebnissen immer „nichts gefunden“.
+      if (typeof r === "number" && r < (f.minImdb as number)) return false;
     }
     if (f.excludeIds?.has(t.id)) return false;
     if (f.seenFilter === "unseen" && f.seenIds?.has(t.id)) return false;

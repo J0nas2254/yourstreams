@@ -68,31 +68,66 @@ select:focus-visible {
   min-height: 100vh;
 }
 
+/* App-Rail wie Netflix/Apple TV: eingeklappt nur Icons (76px),
+   klappt bei Hover/Fokus auf (248px). Nur EINE Sidebar – auf /tv
+   übernimmt die TV-Rail, die globale wird dort ausgeblendet. */
 .sf-sidebar {
   position: sticky;
   top: 0;
   height: 100vh;
   flex-shrink: 0;
-  width: 248px;
+  width: 76px;
   display: flex;
   flex-direction: column;
   gap: 4px;
-  padding: 20px 14px;
-  background: #060607;
+  padding: 20px 12px;
+  background: rgba(6, 6, 7, 0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border-right: 1px solid var(--sf-line);
   z-index: 30;
+  overflow: hidden;
+  transition: width 160ms ease;
+}
+
+@media (min-width: 861px) {
+  .sf-sidebar:hover,
+  .sf-sidebar:focus-within {
+    width: 248px;
+  }
+  .sf-sidebar:not(:hover):not(:focus-within) .sf-brand span:last-child {
+    display: none;
+  }
+  .sf-sidebar:not(:hover):not(:focus-within) .sf-nav-item {
+    justify-content: center;
+    padding: 11px 0;
+  }
+  .sf-sidebar:not(:hover):not(:focus-within) .sf-nav-item span {
+    display: none;
+  }
+}
+
+/* Auf TV-Seiten gibt es nur die TV-Rail (keine doppelte Sidebar). */
+body:has(.tv-shell) .sf-sidebar {
+  display: none;
+}
+body:has(.tv-shell) .sf-main {
+  width: 100%;
 }
 
 .sf-brand {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 6px 10px 16px;
+  padding: 6px 6px 16px;
   font-weight: 900;
   letter-spacing: -0.02em;
   color: #fff;
   font-size: 1.2rem;
+  white-space: nowrap;
 }
+
+
 
 .sf-brand-mark {
   width: 34px;
@@ -126,8 +161,11 @@ select:focus-visible {
   font-size: 0.95rem;
   border: 1px solid transparent;
   text-decoration: none;
+  white-space: nowrap;
   transition: background 120ms ease, color 120ms ease, transform 120ms ease;
 }
+
+
 
 .sf-nav-item svg {
   width: 22px;
