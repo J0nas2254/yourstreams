@@ -326,6 +326,45 @@
   max-width: 150px;
 }
 
+/* Top-220-Unterseite: eigene Ansicht mit nur dieser Auswahl */
+.tv-top-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: #000;
+  overflow-y: auto;
+  padding: 18px clamp(16px, 3vw, 44px) 60px;
+}
+
+.tv-top-bar {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: rgba(0, 0, 0, 0.92);
+  padding: 10px 0 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.tv-top-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.tv-top-count {
+  font-size: 0.85rem;
+  color: #a1a1a6;
+  white-space: nowrap;
+}
+
 /* Alte Klasse weiter unterstützen (Setup-/Fehler-Seiten) */
 .tv-root {
   font-size: 18px;
