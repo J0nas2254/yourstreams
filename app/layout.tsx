@@ -39,14 +39,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </Link>
             <nav
               aria-label="Hauptnavigation"
-              className="no-scrollbar -mx-1 flex w-full items-center gap-0.5 overflow-x-auto whitespace-nowrap text-[13px] font-semibold text-slate-200 sm:mx-0 sm:w-auto sm:flex-wrap sm:gap-1 sm:overflow-visible sm:text-sm"
+              className="no-scrollbar -mx-1 flex w-full items-center gap-1 overflow-x-auto whitespace-nowrap text-[13px] font-semibold text-slate-200 sm:mx-0 sm:w-auto sm:flex-wrap sm:overflow-visible sm:text-sm"
             >
-              <Link className="shrink-0 rounded px-2 py-1.5 hover:bg-white/10" href="/">Start</Link>
-              <Link className="shrink-0 rounded px-2 py-1.5 hover:bg-white/10" href="/suche">Suche</Link>
-              <Link className="shrink-0 rounded px-2 py-1.5 hover:bg-white/10" href="/liste">Liste</Link>
-              <Link className="shrink-0 rounded px-2 py-1.5 hover:bg-white/10" href="/dienste">Dienste</Link>
-              <Link className="shrink-0 rounded px-2 py-1.5 hover:bg-white/10" href="/einstellungen">Einstellungen</Link>
-              <Link className="shrink-0 rounded px-2 py-1.5 hover:bg-white/10" href="/tv">TV</Link>
+              <Link data-tv className="tv-focusable shrink-0 rounded-lg px-3 py-1.5 hover:bg-white/10" href="/">Start</Link>
+              <Link data-tv className="tv-focusable shrink-0 rounded-lg px-3 py-1.5 hover:bg-white/10" href="/suche">Suche</Link>
+              <Link data-tv className="tv-focusable shrink-0 rounded-lg px-3 py-1.5 hover:bg-white/10" href="/liste">Liste</Link>
+              <Link data-tv className="tv-focusable shrink-0 rounded-lg px-3 py-1.5 hover:bg-white/10" href="/dienste">Dienste</Link>
+              <Link data-tv className="tv-focusable shrink-0 rounded-lg px-3 py-1.5 hover:bg-white/10" href="/einstellungen">Einstellungen</Link>
+              <Link data-tv className="tv-focusable shrink-0 rounded-lg px-3 py-1.5 hover:bg-white/10" href="/tv">TV</Link>
             </nav>
           </div>
         </header>

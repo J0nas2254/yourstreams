@@ -137,6 +137,17 @@ export default function TvPage() {
     if (detailId) closeDetail();
   });
 
+  // Beim Start direkt das erste bedienbare Element fokussieren,
+  // damit die Fernbedienung sofort funktioniert.
+  useEffect(() => {
+    if (status !== "ok" || detailId) return;
+    const t = window.setTimeout(() => {
+      const first = document.querySelector<HTMLElement>("main [data-tv], .tv-root [data-tv]");
+      first?.focus({ preventScroll: true });
+    }, 150);
+    return () => window.clearTimeout(t);
+  }, [status, detailId, tab]);
+
   const tvIsSeries = detail?.mediaType === "tv";
   const tvSeasons = tvIsSeries ? detail?.tvInfo?.seasons ?? [] : [];
   const tvSeries = useSeriesEpisodes(detailId ?? "", tvIsSeries ? detail?.tmdbId : undefined, tvSeasons);
@@ -244,14 +255,14 @@ export default function TvPage() {
         type="button"
         onClick={() => setDetailId(t.id)}
         aria-label={`${t.title} – Details ansehen`}
-        className="tv-focusable tv-card w-44 shrink-0 snap-start overflow-hidden rounded-2xl border border-white/10 bg-ink-800 text-left md:w-52"
+        className="tv-focusable tv-card w-36 shrink-0 snap-start overflow-hidden rounded-xl border border-white/10 bg-ink-800 text-left md:w-44"
       >
         <div className="relative aspect-[2/3] w-full bg-ink-700">
           {src ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={src} alt="" aria-hidden loading="lazy" className="h-full w-full object-cover" />
           ) : (
-            <div aria-hidden className="flex h-full items-center justify-center text-4xl font-black text-slate-500">
+            <div aria-hidden className="flex h-full items-center justify-center text-2xl font-black text-slate-500">
               {initials(t.title)}
             </div>
           )}
@@ -266,13 +277,13 @@ export default function TvPage() {
             </span>
           )}
         </div>
-        <div className="p-3">
-          <p className="truncate text-lg font-bold text-white">{t.title}</p>
-          <p className="text-sm text-slate-400">
+        <div className="p-2.5">
+          <p className="truncate text-base font-bold text-white">{t.title}</p>
+          <p className="text-xs text-slate-400">
             {t.year ?? "?"} · {t.mediaType === "tv" ? "Serie" : "Film"}
             {typeof imdbMap.get(t.id) === "number" ? ` · IMDb ★ ${(imdbMap.get(t.id) as number).toFixed(1)}` : ""}
           </p>
-          {reason && <p className="mt-1 text-sm text-gold-300">{reason}</p>}
+          {reason && <p className="mt-1 text-xs text-gold-300">{reason}</p>}
         </div>
       </button>
     );
@@ -287,16 +298,16 @@ export default function TvPage() {
       el.scrollBy({ left: dir * Math.max(el.clientWidth * 0.8, 320), behavior: "smooth" });
     }
     return (
-      <section aria-label={heading} className="mt-8">
-        <div className="flex items-center justify-between gap-4">
-          <h2 className="text-2xl font-extrabold text-white">{heading}</h2>
-          <div className="flex shrink-0 gap-3">
+      <section aria-label={heading} className="mt-6">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-xl font-extrabold text-white">{heading}</h2>
+          <div className="flex shrink-0 gap-2">
             <button
               data-tv
               type="button"
               onClick={() => scrollRow(-1)}
               aria-label={`${heading}: nach links scrollen`}
-              className="tv-focusable rounded-2xl bg-ink-800 px-6 py-3 text-2xl font-bold text-white"
+              className="tv-focusable rounded-xl bg-ink-800 px-3 py-1.5 text-lg font-bold text-white"
             >
               ‹
             </button>
@@ -305,7 +316,7 @@ export default function TvPage() {
               type="button"
               onClick={() => scrollRow(1)}
               aria-label={`${heading}: nach rechts scrollen`}
-              className="tv-focusable rounded-2xl bg-ink-800 px-6 py-3 text-2xl font-bold text-white"
+              className="tv-focusable rounded-xl bg-ink-800 px-3 py-1.5 text-lg font-bold text-white"
             >
               ›
             </button>
@@ -348,12 +359,26 @@ export default function TvPage() {
 
   return (
     <div className="tv-root bg-[#070b16] text-white">
-      <header className="mb-6">
+      <header className="mb-4">
         <h1 className="font-black tracking-tight">StreamFinder TV</h1>
-        <p className="mt-1 text-xl text-slate-300">
-          Echte Verfügbarkeiten deiner Abos · Deutschland (DE) · Mit Fernbedienung bedienbar
+        <p className="mt-1 text-base text-slate-300">
+          Echte Verfügbarkeiten deiner Abos · Deutschland (DE)
         </p>
       </header>
+
+      <section
+        aria-label="Bedienungsanleitung"
+        className="mb-4 max-w-3xl rounded-2xl border border-white/10 bg-ink-800 p-4"
+      >
+        <h2 className="text-base font-extrabold text-white">Bedienung mit der Fernbedienung</h2>
+        <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-slate-200">
+          <li><strong className="text-white">Pfeiltasten:</strong> nach oben, unten, links und rechts bewegen.</li>
+          <li><strong className="text-white">OK:</strong> markierten Button oder Film auswählen.</li>
+          <li><strong className="text-white">Zurück-Taste:</strong> Detailansicht schließen.</li>
+          <li>Oben wählst du einen Bereich: <strong className="text-white">Suchen, Meine Dienste, Meine Liste.</strong></li>
+          <li>Der grüne Rahmen zeigt immer, wo du gerade bist.</li>
+        </ol>
+      </section>
 
       {hero && tab === "suchen" && (
         <section aria-label="Empfehlung" className="relative mb-2 overflow-hidden rounded-3xl border border-white/10">
@@ -364,15 +389,15 @@ export default function TvPage() {
             )}
             <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-[#070b16] via-transparent to-transparent" />
             <div aria-hidden className="absolute inset-0 bg-gradient-to-r from-[#070b16]/80 via-transparent to-transparent" />
-            <div className="absolute bottom-0 left-0 max-w-2xl p-8">
-              <p className="text-xl font-bold uppercase tracking-wider text-gold-300">Empfehlung des Tages</p>
-              <h2 className="text-glow mt-1 text-5xl font-black">{hero.title}</h2>
-              <div className="mt-3 flex gap-3">
+            <div className="absolute bottom-0 left-0 max-w-2xl p-5">
+              <p className="text-sm font-bold uppercase tracking-wider text-gold-300">Empfehlung des Tages</p>
+              <h2 className="text-glow mt-1 text-3xl font-black">{hero.title}</h2>
+              <div className="mt-3 flex flex-wrap gap-2">
                 <button
                   data-tv
                   type="button"
                   onClick={() => setDetailId(hero.id)}
-                  className="tv-focusable rounded-2xl bg-white px-8 py-4 text-2xl font-extrabold text-slate-900"
+                  className="tv-focusable rounded-xl bg-white px-5 py-2.5 text-lg font-extrabold text-slate-900"
                 >
                   Details ansehen
                 </button>
@@ -380,7 +405,7 @@ export default function TvPage() {
                   data-tv
                   type="button"
                   onClick={surprise}
-                  className="tv-focusable rounded-2xl bg-gold-400 px-8 py-4 text-2xl font-extrabold text-slate-900"
+                  className="tv-focusable rounded-xl bg-gold-400 px-5 py-2.5 text-lg font-extrabold text-slate-900"
                 >
                   Überrasch mich
                 </button>
@@ -390,7 +415,7 @@ export default function TvPage() {
         </section>
       )}
 
-      <nav aria-label="TV-Bereiche" className="mb-2 flex flex-wrap gap-3">
+      <nav aria-label="TV-Bereiche" className="mb-2 flex flex-wrap gap-2">
         {TABS.map((t) => (
           <button
             key={t.id}
@@ -401,7 +426,7 @@ export default function TvPage() {
               setDetailId(null);
             }}
             aria-current={tab === t.id ? "page" : undefined}
-            className={`tv-focusable rounded-2xl px-8 py-4 text-2xl font-bold ${
+            className={`tv-focusable rounded-xl px-5 py-2.5 text-lg font-bold ${
               tab === t.id ? "bg-white text-slate-900" : "bg-ink-800 text-white"
             }`}
           >
@@ -415,7 +440,7 @@ export default function TvPage() {
         <>
           <form
             role="search"
-            className="mt-4 flex flex-wrap gap-3"
+            className="mt-4 flex flex-wrap gap-2"
             onSubmit={(e) => {
               e.preventDefault();
               runSearch(q);
@@ -428,9 +453,9 @@ export default function TvPage() {
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Film oder Serie suchen … (Tastatur öffnet sich automatisch)"
-              className="tv-focusable w-full min-w-0 max-w-2xl flex-1 rounded-2xl bg-white px-4 py-4 text-xl text-slate-900 sm:px-6 sm:text-2xl"
+              className="tv-focusable w-full min-w-0 max-w-2xl flex-1 rounded-xl bg-white px-4 py-2.5 text-base text-slate-900 sm:text-lg"
             />
-            <button data-tv type="submit" className="tv-focusable rounded-2xl bg-white px-8 py-4 text-2xl font-extrabold text-slate-900">
+            <button data-tv type="submit" className="tv-focusable rounded-xl bg-white px-5 py-2.5 text-lg font-extrabold text-slate-900">
               Suchen
             </button>
           </form>
@@ -463,8 +488,8 @@ export default function TvPage() {
       )}
 
       {tab === "dienste" && (
-        <section aria-label="Dienste" className="mt-4 space-y-6">
-          <p className="max-w-3xl text-2xl text-slate-300">
+        <section aria-label="Dienste" className="mt-4 space-y-4">
+          <p className="max-w-3xl text-base text-slate-300">
             Wähle mit OK deine Haushalts-Abos. Echte Anbieterliste von TMDb (DE). Alles bleibt auf diesem Gerät.
           </p>
           <button
@@ -472,7 +497,7 @@ export default function TvPage() {
             type="button"
             onClick={() => toggleService(FREE_TV_ID)}
             aria-pressed={services.includes(FREE_TV_ID)}
-            className="tv-focusable flex w-full items-center justify-between rounded-3xl p-6 text-2xl font-bold bg-white text-slate-900"
+            className="tv-focusable flex w-full items-center justify-between rounded-2xl p-4 text-lg font-bold bg-white text-slate-900"
           >
             <span>{FREE_TV_LABEL}</span>
             <span aria-hidden>{services.includes(FREE_TV_ID) ? "✓" : "○"}</span>
@@ -484,7 +509,7 @@ export default function TvPage() {
       {tab === "liste" && (
         <section aria-label="Meine Liste" className="mt-4">
           {saved.length === 0 ? (
-            <p className="text-2xl text-slate-300">
+            <p className="text-base text-slate-300">
               Noch nichts gemerkt. Suche Titel und merke sie über die Detailansicht.
             </p>
           ) : (
@@ -493,7 +518,7 @@ export default function TvPage() {
         </section>
       )}
 
-      <footer className="mt-10 text-lg text-slate-400">
+      <footer className="mt-8 text-sm text-slate-400">
         <p>
           Daten: TMDb (nicht von TMDB zertifiziert) · Verfügbarkeiten u. a. von JustWatch · IMDb via OMDb ·
           Region DE · Keine Wiedergabe in der App. Offline: gespeicherte Liste, sonst Internet nötig.
@@ -501,27 +526,27 @@ export default function TvPage() {
       </footer>
 
       {detailId && detail && (
-        <div role="dialog" aria-modal="true" aria-label={detail.title} className="fixed inset-0 z-50 overflow-y-auto bg-black/85 p-[4vw]">
-          <div className="mx-auto max-w-4xl rounded-3xl border border-white/10 bg-ink-900 p-8 text-white">
-            <h2 className="text-4xl font-black">{detail.title}</h2>
-            <p className="mt-2 text-2xl text-slate-300">
+        <div role="dialog" aria-modal="true" aria-label={detail.title} className="fixed inset-0 z-50 overflow-y-auto bg-black/85 p-[3vw]">
+          <div className="mx-auto max-w-3xl rounded-2xl border border-white/10 bg-ink-900 p-5 text-white">
+            <h2 className="text-2xl font-black">{detail.title}</h2>
+            <p className="mt-1 text-base text-slate-300">
               {detail.year ?? "?"} · {detail.mediaType === "tv" ? "Serie" : "Film"}
               {typeof detail.voteAverage === "number" ? ` · TMDb ★ ${detail.voteAverage.toFixed(1)}` : ""}
             </p>
             <div className="mt-2"><ImdbBadge imdbId={detail.imdbId} /></div>
-            <p className="mt-4 text-2xl text-slate-200">{detail.overview || "Keine Beschreibung verfügbar."}</p>
+            <p className="mt-3 text-base text-slate-200">{detail.overview || "Keine Beschreibung verfügbar."}</p>
             {detail.genres.length > 0 && (
-              <p className="mt-2 text-xl text-slate-300">Genres: {detail.genres.join(", ")}</p>
+              <p className="mt-2 text-sm text-slate-300">Genres: {detail.genres.join(", ")}</p>
             )}
-            <h3 className="mt-6 text-2xl font-extrabold">Verfügbarkeit in Deutschland (DE)</h3>
+            <h3 className="mt-5 text-lg font-extrabold">Verfügbarkeit in Deutschland (DE)</h3>
             {detail.availability.length === 0 ? (
-              <p className="mt-2 text-xl text-slate-300">
+              <p className="mt-2 text-base text-slate-300">
                 Aktuell keine Verfügbarkeit für DE bekannt – Daten können veraltet oder unvollständig sein.
               </p>
             ) : (
               <div className="mt-3 flex flex-wrap gap-2">
                 {detail.availability.filter((a, i, arr) => arr.findIndex((b) => b.provider_id === a.provider_id && b.kind === a.kind) === i).map((a, i) => (
-                  <span key={`${a.provider_id}-${i}`} className="rounded-full bg-white/10 px-4 py-2 text-xl">
+                  <span key={`${a.provider_id}-${i}`} className="rounded-full bg-white/10 px-3 py-1 text-sm">
                     {a.provider_name} · {a.kind === "flatrate" ? "Abo" : a.kind === "free" ? "Kostenlos" : a.kind === "ads" ? "Werbung" : a.kind === "rent" ? "Leihen" : "Kaufen"}
                   </span>
                 ))}
@@ -559,13 +584,13 @@ export default function TvPage() {
                 tvMode
               />
             )}
-            <div className="mt-4 flex flex-wrap gap-4">
+            <div className="mt-4 flex flex-wrap gap-2">
               {detail.justWatchLink ? (
                 <button
                   data-tv
                   type="button"
                   onClick={() => detail.justWatchLink && openExternal(detail.justWatchLink)}
-                  className="tv-focusable rounded-2xl bg-blue-600 px-8 py-4 text-2xl font-bold text-white"
+                  className="tv-focusable rounded-xl bg-blue-600 px-5 py-2.5 text-lg font-bold text-white"
                 >
                   Watch-Option öffnen ↗
                 </button>
@@ -574,13 +599,13 @@ export default function TvPage() {
                 data-tv
                 type="button"
                 onClick={closeDetail}
-                className="tv-focusable rounded-2xl bg-white px-8 py-4 text-2xl font-extrabold text-slate-900"
+                className="tv-focusable rounded-xl bg-white px-5 py-2.5 text-lg font-extrabold text-slate-900"
               >
                 Schließen (Zurück)
               </button>
             </div>
             {!detail.justWatchLink && (
-              <p className="mt-3 text-lg text-slate-400">
+              <p className="mt-3 text-sm text-slate-400">
                 Kein Link aus der API – bitte direkt in der App des Anbieters suchen. Keine Wiedergabe in dieser App.
               </p>
             )}

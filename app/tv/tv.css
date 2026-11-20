@@ -1,12 +1,14 @@
-/* 10-Foot-Layout: große Schrift, Overscan-Abstand, starker Fokus */
+/* TV-Layout: natürliche Größen, Overscan-Abstand, gut sichtbarer Fokus.
+   Bewusst nicht übergroß, damit alles ohne Scrollen erreichbar wirkt. */
 .tv-root {
-  font-size: 20px;
-  padding: max(3vw, 24px);
+  font-size: 16px;
+  padding: max(2vw, 16px);
   min-height: 100vh;
 }
 
 .tv-root h1 {
-  font-size: 2.2rem;
+  font-size: 1.6rem;
+  line-height: 1.2;
 }
 
 .tv-focusable {
@@ -15,8 +17,8 @@
 }
 
 .tv-focusable:focus {
-  box-shadow: 0 0 0 5px #34d399, 0 0 0 9px #101c3d, 0 12px 32px rgba(0, 0, 0, 0.45);
-  transform: scale(1.04);
+  box-shadow: 0 0 0 3px #34d399, 0 0 0 5px #101c3d, 0 8px 20px rgba(0, 0, 0, 0.45);
+  transform: scale(1.02);
   z-index: 2;
   position: relative;
 }

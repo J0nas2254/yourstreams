@@ -27,7 +27,7 @@ export default function ProviderGroupList({ providers, services, onToggle, large
                 aria-pressed={active}
                 className={
                   large
-                    ? `tv-focusable flex w-full items-center justify-between rounded-3xl p-6 text-2xl font-bold ${active ? "bg-emerald-400 text-slate-900" : "bg-white text-slate-900"}`
+                    ? `tv-focusable flex w-full items-center justify-between rounded-2xl p-4 text-lg font-bold ${active ? "bg-emerald-400 text-slate-900" : "bg-white text-slate-900"}`
                     : `flex w-full items-center justify-between gap-3 rounded-2xl border p-4 text-left font-semibold ${active ? "border-emerald-400 bg-emerald-400/10 text-white" : "border-white/10 bg-ink-800 text-slate-200"}`
                 }
               >
@@ -52,11 +52,11 @@ export default function ProviderGroupList({ providers, services, onToggle, large
             <details
               className={
                 large
-                  ? "rounded-3xl bg-white p-6 text-slate-900"
+                  ? "rounded-2xl bg-white p-4 text-slate-900"
                   : "rounded-2xl border border-white/10 bg-ink-800 p-4"
               }
             >
-              <summary className={`flex cursor-pointer list-none items-center justify-between gap-3 font-semibold ${large ? "text-2xl font-bold" : "text-slate-200"}`}>
+              <summary className={`flex cursor-pointer list-none items-center justify-between gap-3 font-semibold ${large ? "text-lg font-bold" : "text-slate-200"}`}>
                 <span>
                   {g.label}
                   <span className={`block text-xs font-normal ${large ? "text-slate-600" : "text-slate-400"}`}>
@@ -86,7 +86,7 @@ export default function ProviderGroupList({ providers, services, onToggle, large
                       aria-pressed={active}
                       className={
                         large
-                          ? `tv-focusable flex w-full items-center justify-between rounded-2xl p-4 text-xl font-bold ${active ? "bg-emerald-400 text-slate-900" : "bg-slate-100 text-slate-900"}`
+                          ? `tv-focusable flex w-full items-center justify-between rounded-xl p-3 text-base font-bold ${active ? "bg-emerald-400 text-slate-900" : "bg-slate-100 text-slate-900"}`
                           : `flex w-full items-center justify-between gap-3 rounded-xl border p-3 text-left text-sm font-semibold ${active ? "border-emerald-400 bg-emerald-400/10 text-white" : "border-white/10 bg-ink-950 text-slate-200"}`
                       }
                     >
