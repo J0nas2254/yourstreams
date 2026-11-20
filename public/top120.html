@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Top 120</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #000; color: #fff; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { position: sticky; top: 0; z-index: 10; background: #000; border-bottom: 1px solid #333; padding: 16px 20px; }
+  h1 { margin: 0 0 4px; font-size: 28px; font-weight: 900; }
+  #count { color: #bbb; font-size: 16px; }
+  #controls { display: flex; flex-wrap: wrap; gap: 10px; padding: 16px 20px; align-items: center; }
+  select, button { font-size: 18px; padding: 12px 16px; border-radius: 10px; border: 1px solid #555; background: #fff; color: #000; }
+  button { font-weight: 800; cursor: pointer; }
+  button:focus-visible, a:focus-visible, select:focus-visible { outline: 4px solid #fff; outline-offset: 2px; }
+  #status { padding: 0 20px 8px; color: #bbb; font-size: 16px; }
+  #grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; padding: 8px 20px 40px; }
+  #grid a { display: block; background: #141414; border: 1px solid #333; border-radius: 12px; overflow: hidden; text-decoration: none; color: #fff; }
+  #grid img { display: block; width: 100%; aspect-ratio: 2/3; object-fit: cover; background: #222; }
+  #grid .t { padding: 10px 12px; }
+  #grid .t b { display: block; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #grid .t span { color: #aaa; font-size: 14px; }
+  .ph { display: flex; align-items: center; justify-content: center; width: 100%; aspect-ratio: 2/3; background: #222; font-size: 40px; font-weight: 900; color: #666; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Top 120 &middot; <span id="gname">Alle Genres</span></h1>
+  <div id="count" aria-live="polite">L&auml;dt &hellip;</div>
+</header>
+<div id="controls">
+  <label>Genre
+    <select id="genre"><option value="">Alle Genres</option></select>
+  </label>
+  <label>Art
+    <select id="media">
+      <option value="all">Filme &amp; Serien</option>
+      <option value="movie">Nur Filme</option>
+      <option value="tv">Nur Serien</option>
+    </select>
+  </label>
+  <button id="apply" type="button">Anwenden</button>
+</div>
+<div id="status" aria-live="polite"></div>
+<div id="grid"></div>
+<script>
+  var genreMap = { movie: [], tv: [] };
+
+  function $(id) { return document.getElementById(id); }
+
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  async function getJSON(path) {
+    var r = await fetch(path);
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    return r.json();
+  }
+
+  function genreIdFor(name, media) {
+    if (!name) return null;
+    var primary = media === "tv" ? genreMap.tv : media === "movie" ? genreMap.movie : genreMap.movie.concat(genreMap.tv);
+    var hit = null;
+    for (var i = 0; i < primary.length; i++) {
+      if (primary[i].name === name) { hit = primary[i]; break; }
+    }
+    return hit ? hit.id : null;
+  }
+
+  async function loadGenres() {
+    var sel = $("genre");
+    try {
+      var g = await getJSON("/api/genres");
+      genreMap = { movie: g.movie || [], tv: g.tv || [] };
+      var seen = {};
+      var all = genreMap.movie.concat(genreMap.tv);
+      for (var i = 0; i < all.length; i++) {
+        if (seen[all[i].name]) continue;
+        seen[all[i].name] = true;
+        var o = document.createElement("option");
+        o.value = all[i].name;
+        o.textContent = all[i].name;
+        sel.appendChild(o);
+      }
+    } catch (e) {
+      $("status").textContent = "Genres konnten nicht geladen werden: " + e.message;
+    }
+  }
+
+  function card(t) {
+    var src = t.posterPath ? "https://image.tmdb.org/t/p/w342" + t.posterPath : null;
+    var img = src
+      ? '<img src="' + esc(src) + '" alt="" loading="lazy">'
+      : '<div class="ph" aria-hidden="true">' + esc((t.title || "?").slice(0, 2).toUpperCase()) + "</div>";
+    var kind = t.mediaType === "tv" ? "Serie" : "Film";
+    return (
+      '<a href="/titel?id=' + encodeURIComponent(t.id) + '">' +
+      img +
+      '<div class="t"><b>' + esc(t.title || "Ohne Titel") + "</b><span>" +
+      esc(t.year == null ? "?" : t.year) + " &middot; " + kind +
+      "</span></div></a>"
+    );
+  }
+
+  async function load() {
+    var genre = $("genre").value;
+    var media = $("media").value;
+    var gid = genreIdFor(genre, media);
+    $("gname").textContent = genre || "Alle Genres";
+    $("status").textContent = "L\u00e4dt 3 Seiten \u2026";
+    $("count").textContent = "L\u00e4dt \u2026";
+    try {
+      var pages = await Promise.all([1, 2, 3].map(function (p) {
+        var q = new URLSearchParams();
+        q.set("providers", "");
+        if (gid) q.set("genreId", String(gid));
+        if (media !== "all") q.set("mediaType", media);
+        q.set("page", String(p));
+        return getJSON("/api/discover?" + q.toString()).then(
+          function (d) { return d.results || []; },
+          function () { return []; }
+        );
+      }));
+      var map = {};
+      var order = [];
+      for (var i = 0; i < pages.length; i++) {
+        for (var j = 0; j < pages[i].length; j++) {
+          var t = pages[i][j];
+          if (!map[t.id]) { map[t.id] = t; order.push(t); }
+        }
+      }
+      var list = order.slice(0, 120);
+      $("grid").innerHTML = list.map(card).join("");
+      $("count").textContent = list.length + " Titel";
+      $("status").textContent = list.length === 0
+        ? "Keine Ergebnisse \u2013 Filter anpassen."
+        : "";
+    } catch (e) {
+      $("count").textContent = "Fehler";
+      $("status").textContent = "Laden fehlgeschlagen (" + e.message + "). " +
+        "Falls HTTP 503: TMDb-Key fehlt auf dem Server bzw. Dev-Server neu starten nach git pull.";
+    }
+  }
+
+  (function init() {
+    var q = new URLSearchParams(window.location.search);
+    if (q.get("genre")) {
+      var opt = document.createElement("option");
+      opt.value = q.get("genre");
+      opt.textContent = q.get("genre");
+      $("genre").appendChild(opt);
+      $("genre").value = q.get("genre");
+    }
+    if (q.get("media")) $("media").value = q.get("media");
+    $("apply").addEventListener("click", load);
+    loadGenres().then(load, load);
+  })();
+</script>
+</body>
+</html>
