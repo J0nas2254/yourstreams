@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Browser } from "@capacitor/browser";
 import type { Genre, Title } from "@/lib/types";
 import { ApiError, apiDiscover, apiGenres, apiImdbRating, apiProviders, apiSeasonEpisodes, apiTitle, apiTrending, isCapacitorAndroid } from "@/lib/api.ts";
@@ -43,17 +44,6 @@ interface Discovery {
   genreRails: Array<{ heading: string; titles: Title[] }>;
 }
 
-// Top-220-Unterseite: eigene Ansicht mit nur dieser Auswahl.
-interface TopRequest {
-  title: string;
-  genre: string | null;
-  media: "movie" | "tv" | "all";
-  yearFrom: string;
-  yearTo: string;
-  onlyMine: boolean;
-  included: boolean;
-  seed: Title[];
-}
 
 // Stellt Rails aus echten Titeln zusammen: Lieblings-Genres zuerst, täglich
 // neu rotiert und ohne Wiederholung über die Rails hinweg.
@@ -109,6 +99,7 @@ function initials(title: string) {
 }
 
 export default function TvPage() {
+  const router = useRouter();
   const [view, setView] = useState<View>("entdecken");
   const [q, setQ] = useState("");
   const [presetGenre, setPresetGenre] = useState<string | null>(null);
@@ -219,7 +210,6 @@ export default function TvPage() {
   const closeDetail = useCallback(() => setDetailId(null), []);
   useTvFocus(true, () => {
     if (detailId) closeDetail();
-    else if (topReq) setTopReq(null);
   });
 
   // Beim Start direkt das erste bedienbare Element fokussieren,
@@ -445,65 +435,6 @@ export default function TvPage() {
     void runBrowse(presetGenre);
   }
 
-  // Top-220-Unterseite: eigene Ansicht mit nur dieser Auswahl (Seed sofort,
-  // Rest wird bis 220 nachgeladen).
-  const [topReq, setTopReq] = useState<TopRequest | null>(null);
-  const [topTitles, setTopTitles] = useState<Title[]>([]);
-  const [topLoading, setTopLoading] = useState(false);
-
-  useEffect(() => {
-    if (!topReq) return;
-    const req = topReq;
-    let cancelled = false;
-    setTopTitles(req.seed);
-    if (req.seed.length >= 220) {
-      setTopLoading(false);
-      return;
-    }
-    setTopLoading(true);
-    (async () => {
-      try {
-        const gid = req.genre ? genreIdFor(req.genre, req.media) : null;
-        const provs = req.onlyMine ? services : [];
-        const map = new Map<string, Title>();
-        for (const t of req.seed) map.set(t.id, t);
-        for (let page = 1; page <= 11; page += 1) {
-          const r = await apiDiscover(provs, {
-            genreId: gid,
-            yearFrom: req.yearFrom ? Number(req.yearFrom) : null,
-            yearTo: req.yearTo ? Number(req.yearTo) : null,
-            mediaType: req.media,
-            page
-          });
-          if (r.length === 0) break;
-          for (const t of r) if (!map.has(t.id)) map.set(t.id, t);
-          if (map.size >= 220) break;
-        }
-        let list = [...map.values()].slice(0, 220);
-        if (req.included) {
-          list = list.filter((t) => t.availability.some((a) => a.kind === "flatrate" || a.kind === "free" || a.kind === "ads"));
-        }
-        if (!cancelled) setTopTitles(list);
-      } catch {
-        // Seed bleibt stehen
-      } finally {
-        if (!cancelled) setTopLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [topReq, services]);
-
-  // Fokus beim Öffnen der Unterseite auf „Zurück“ legen.
-  useEffect(() => {
-    if (!topReq) return;
-    const t = window.setTimeout(() => {
-      document.querySelector<HTMLElement>(".tv-top-overlay [data-tv]")?.focus({ preventScroll: true });
-    }, 80);
-    return () => window.clearTimeout(t);
-  }, [topReq]);
-
   function Card({ t, reason, wide }: { t: Title; reason?: string; wide?: boolean }) {
     const src = posterUrl(t.posterPath, "w342");
     return (
@@ -700,16 +631,7 @@ export default function TvPage() {
             data-tv
             type="button"
             onClick={() =>
-              setTopReq({
-                title: `Top 220 · ${name}`,
-                genre: name,
-                media,
-                yearFrom: "",
-                yearTo: "",
-                onlyMine: false,
-                included: false,
-                seed: preview
-              })
+              router.push(`/tv/top?${new URLSearchParams({ genre: name, media }).toString()}`)
             }
             className="tv-focusable tv-more-btn"
           >
@@ -942,18 +864,17 @@ export default function TvPage() {
                 heading={`Top ${filteredResults.length}${presetGenre ? ` · ${presetGenre}` : ""}`}
                 titles={filteredResults}
                 topLabel="Top 220 ansehen"
-                onTop={() =>
-                  setTopReq({
-                    title: `Top ${filteredResults.length}${presetGenre ? ` · ${presetGenre}` : ""}`,
-                    genre: presetGenre,
-                    media: (view === "serien" ? "tv" : view === "filme" ? "movie" : "all") as "movie" | "tv" | "all",
-                    yearFrom: fYearFrom,
-                    yearTo: fYearTo,
-                    onlyMine: fOnlyMine,
-                    included: fIncluded,
-                    seed: filteredResults
-                  })
-                }
+                onTop={() => {
+                  const q = new URLSearchParams({
+                    media: view === "serien" ? "tv" : view === "filme" ? "movie" : "all"
+                  });
+                  if (presetGenre) q.set("genre", presetGenre);
+                  if (fYearFrom) q.set("yearFrom", fYearFrom);
+                  if (fYearTo) q.set("yearTo", fYearTo);
+                  if (fOnlyMine) q.set("onlyMine", "1");
+                  if (fIncluded) q.set("included", "1");
+                  router.push(`/tv/top?${q.toString()}`);
+                }}
               />
             )
           ) : view === "entdecken" ? (
@@ -1035,29 +956,6 @@ export default function TvPage() {
           Region DE · Keine Wiedergabe in der App. Offline: gespeicherte Liste, sonst Internet nötig.
         </p>
       </footer>
-
-      {topReq && (
-        <div className="tv-top-overlay" role="region" aria-label={topReq.title}>
-          <div className="tv-top-bar">
-            <button data-tv type="button" onClick={() => setTopReq(null)} className="tv-focusable tv-btn bg-white text-black">
-              ← Zurück
-            </button>
-            <h2 className="tv-top-title">{topReq.title}</h2>
-            <span className="tv-top-count" aria-live="polite">
-              {topLoading ? "Lädt …" : `${topTitles.length} Titel`}
-            </span>
-          </div>
-          {topTitles.length === 0 && !topLoading ? (
-            <p className="mt-6 text-base text-slate-300">Keine Ergebnisse – passe Filter an.</p>
-          ) : (
-            <div className="tv-grid-all">
-              {topTitles.map((t) => (
-                <Card key={t.id} t={t} wide />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
 
       {detailId && detail && (
         <div role="dialog" aria-modal="true" aria-label={detail.title} className="fixed inset-0 z-50 overflow-y-auto bg-black/85 p-[3vw]">
