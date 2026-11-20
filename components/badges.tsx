@@ -1,11 +1,12 @@
 import { AVAILABILITY_LABELS, type AvailabilityKind } from "@/lib/types";
 
+// Monochrom-Premium: alle Badges in Schwarz/Weiß/Grau statt Bunt.
 const KIND_STYLES: Record<AvailabilityKind, string> = {
-  flatrate: "bg-emerald-100 text-emerald-900 border-emerald-300",
-  free: "bg-sky-100 text-sky-900 border-sky-300",
-  ads: "bg-amber-100 text-amber-900 border-amber-300",
-  rent: "bg-violet-100 text-violet-900 border-violet-300",
-  buy: "bg-slate-200 text-slate-900 border-slate-300"
+  flatrate: "bg-white text-black border-white",
+  free: "bg-neutral-200 text-black border-neutral-200",
+  ads: "bg-neutral-800 text-white border-neutral-600",
+  rent: "bg-neutral-900 text-white border-neutral-600",
+  buy: "bg-black text-white border-neutral-500"
 };
 
 export function KindBadge({ kind }: { kind: AvailabilityKind }) {
@@ -20,7 +21,7 @@ export function KindBadge({ kind }: { kind: AvailabilityKind }) {
 
 export function ProviderBadge({ name }: { name: string }) {
   return (
-    <span className="inline-flex items-center rounded-md bg-slate-900 px-2 py-1 text-xs font-semibold text-white">
+    <span className="inline-flex items-center rounded-md bg-neutral-900 border border-white/15 px-2 py-1 text-xs font-semibold text-white">
       {name}
     </span>
   );

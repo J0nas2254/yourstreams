@@ -1,59 +1,60 @@
-/* StreamFinder TV: App-Gefühl statt Webseite.
-   Links eine schmale Glas-Leiste, die sich erst beim Ansteuern
-   (ganz nach links) ausklappt. Fokus: heller Glow wie bei tvOS. */
+/* StreamFinder TV: Monochrom-Premium (Apple-TV-like), optimiert für 1080p / 65 Zoll.
+   - Immer sichtbare linke Sidebar mit hochwertigen SVG-Icons + Labels
+     (kein Hover-Aufklappen: unbedienbar mit Fernbedienung).
+   - Großer, ruhiger Fokus: weiße Kontur + dezente Skalierung.
+   - Rails im Disney-Stil: Überschrift + „Mehr“-Raster bis 10 Spalten. */
 
 .tv-shell {
   display: flex;
   min-height: 100vh;
-  color: #fff;
-  background:
-    radial-gradient(1200px 600px at 85% -10%, rgba(56, 89, 199, 0.28), transparent 60%),
-    radial-gradient(900px 500px at -10% 110%, rgba(120, 60, 180, 0.22), transparent 60%),
-    linear-gradient(180deg, #0a1128 0%, #070b16 55%, #05070f 100%);
+  color: #f5f5f7;
+  background: #000;
+  font-size: 18px;
 }
 
-/* ---- Seitenleiste: eingeklappt nur Icons, klappt bei Hover/Fokus aus ---- */
+/* ---- Seitenleiste: fest, breit genug für 65 Zoll aus 3m ---- */
 .tv-rail {
   position: sticky;
   top: 0;
   height: 100vh;
   flex-shrink: 0;
-  width: 72px;
-  margin: 12px 0 12px 12px;
-  padding: 16px 10px;
+  width: 248px;
+  margin: 0;
+  padding: 22px 14px;
   display: flex;
   flex-direction: column;
   align-items: stretch;
   gap: 6px;
-  border-radius: 24px;
-  background: rgba(255, 255, 255, 0.08);
-  -webkit-backdrop-filter: blur(28px) saturate(1.4);
-  backdrop-filter: blur(28px) saturate(1.4);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
-  overflow: hidden;
-  transition: width 180ms ease;
+  background: #060607;
+  border-right: 1px solid rgba(255, 255, 255, 0.12);
   z-index: 20;
 }
 
-.tv-rail:hover,
-.tv-rail:focus-within {
-  width: 228px;
-}
-
 .tv-rail-logo {
-  width: 48px;
-  height: 48px;
-  margin: 0 auto 12px;
+  width: 100%;
+  margin: 0 0 14px;
+  padding: 4px 10px 14px;
   display: flex;
   align-items: center;
-  justify-content: center;
-  border-radius: 16px;
-  font-size: 1.5rem;
+  gap: 10px;
+  font-size: 1.3rem;
   font-weight: 900;
+  letter-spacing: -0.02em;
   color: #fff;
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.85), rgba(168, 85, 247, 0.85));
-  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.tv-rail-logo-mark {
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 11px;
+  background: #fff;
+  color: #000;
+  font-size: 1.2rem;
+  font-weight: 900;
   flex-shrink: 0;
 }
 
@@ -62,117 +63,231 @@
   align-items: center;
   gap: 14px;
   width: 100%;
-  padding: 12px;
-  border-radius: 16px;
-  color: #e2e8f0;
+  padding: 14px 14px;
+  border-radius: 14px;
+  color: #a1a1a6;
   background: transparent;
   border: 1px solid transparent;
   text-align: left;
   white-space: nowrap;
+  font-size: 1.05rem;
+  font-weight: 650;
+  min-height: 56px;
 }
 
 .tv-rail-item.is-active {
-  background: rgba(255, 255, 255, 0.16);
-  border-color: rgba(255, 255, 255, 0.18);
-  color: #fff;
+  background: #fff;
+  color: #000;
 }
 
 .tv-rail-icon {
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   flex-shrink: 0;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.35rem;
-  margin: 0 auto;
 }
 
-.tv-rail:hover .tv-rail-icon,
-.tv-rail:focus-within .tv-rail-icon {
-  margin: 0;
+.tv-rail-icon svg {
+  width: 26px;
+  height: 26px;
 }
 
 .tv-rail-label {
   font-size: 1.05rem;
   font-weight: 700;
-  opacity: 0;
   overflow: hidden;
-  transition: opacity 150ms ease;
+  text-overflow: ellipsis;
 }
 
-.tv-rail:hover .tv-rail-label,
-.tv-rail:focus-within .tv-rail-label {
-  opacity: 1;
-}
-
-/* ---- Hauptbereich ---- */
+/* ---- Hauptbereich: großzügig für 1080p ---- */
 .tv-main {
   flex: 1;
   min-width: 0;
-  padding: max(2vw, 16px);
-  padding-left: max(2vw, 20px);
+  padding: 28px clamp(20px, 3vw, 52px) 60px;
+  max-width: 1760px;
 }
 
 .tv-main h1 {
-  font-size: 1.6rem;
-  line-height: 1.2;
+  font-size: 2rem;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
 }
 
 .tv-eyebrow {
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   font-weight: 800;
-  letter-spacing: 0.22em;
+  letter-spacing: 0.24em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.55);
 }
 
-/* ---- Glas-Karten ---- */
-.tv-card {
-  background: rgba(255, 255, 255, 0.07) !important;
-  -webkit-backdrop-filter: blur(18px);
-  backdrop-filter: blur(18px);
-  border: 1px solid rgba(255, 255, 255, 0.12) !important;
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+.tv-hint {
+  font-size: 1rem;
+  color: #a1a1a6;
 }
 
-/* ---- Fokus: heller Glow, kein grüner Rahmen mehr ---- */
+/* ---- Karten: größer, ruhiger, monochrom ---- */
+.tv-card {
+  background: #131316 !important;
+  border: 2px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  border-radius: 18px !important;
+  overflow: hidden;
+}
+
+.tv-card-title {
+  font-size: 1.05rem !important;
+  line-height: 1.3;
+}
+
+.tv-card-meta {
+  font-size: 0.9rem !important;
+}
+
+/* ---- Fokus: eindeutig, ruhig, TV-tauglich ---- */
 .tv-focusable {
   outline: none;
-  transition: transform 120ms ease, box-shadow 120ms ease, background-color 120ms ease;
+  transition: transform 120ms ease, box-shadow 120ms ease, background-color 120ms ease, border-color 120ms ease;
 }
 
 .tv-focusable:focus {
-  box-shadow:
-    0 0 0 3px rgba(255, 255, 255, 0.95),
-    0 12px 32px rgba(0, 0, 0, 0.55);
-  transform: scale(1.04);
+  box-shadow: 0 0 0 4px #fff, 0 0 0 8px rgba(255, 255, 255, 0.25), 0 16px 40px rgba(0, 0, 0, 0.6);
+  transform: scale(1.045);
   z-index: 2;
   position: relative;
+  border-color: #fff !important;
 }
 
 .tv-card:focus {
-  background: rgba(255, 255, 255, 0.14) !important;
+  background: #1e1e21 !important;
   color: #fff !important;
 }
 
 .tv-rail-item:focus {
   transform: none;
-  background: rgba(255, 255, 255, 0.22);
+}
+
+.tv-rail-item.is-active:focus {
+  box-shadow: 0 0 0 4px #fff, 0 0 0 8px rgba(255, 255, 255, 0.35);
+}
+
+/* ---- Disney-Rails: Kopf mit „Mehr“-Button + Raster ---- */
+.tv-row-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.tv-row-title {
+  font-size: 1.45rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: #fff;
+}
+
+.tv-more-btn {
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: #fff;
+  color: #000;
+  font-weight: 800;
+  font-size: 1rem;
+  padding: 10px 20px;
+  border: 2px solid #fff;
+  min-height: 48px;
+}
+
+.tv-row {
+  display: flex;
+  gap: 18px;
+  overflow-x: auto;
+  padding: 16px 4px 10px;
+  scroll-snap-type: x mandatory;
+}
+
+.tv-grid-all {
+  display: grid;
+  gap: 22px 16px;
+  margin-top: 18px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+@media (min-width: 1100px) {
+  .tv-grid-all {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
+/* 1080p: 1920px Breite minus Sidebar ≈ 1670px → 8 Spalten; volle 10 auf sehr breit */
+@media (min-width: 1500px) {
+  .tv-grid-all {
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1850px) {
+  .tv-grid-all {
+    grid-template-columns: repeat(10, minmax(0, 1fr));
+  }
+}
+
+/* Genre-Chips: groß genug für Fernbedienung */
+.tv-chip {
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: #141416;
+  color: #e8e8ea;
+  border-radius: 999px;
+  padding: 12px 20px;
+  font-size: 1.02rem;
+  font-weight: 700;
+  min-height: 52px;
+}
+
+.tv-chip.is-on {
+  background: #fff;
+  color: #000;
+  border-color: #fff;
+}
+
+/* Sucheingaben: groß, kontrastreich für 65 Zoll */
+.tv-input {
+  font-size: 1.15rem !important;
+  padding: 14px 18px !important;
+  min-height: 56px;
+  border-radius: 14px !important;
+  border: 2px solid rgba(255, 255, 255, 0.2) !important;
+}
+
+.tv-btn {
+  font-size: 1.1rem !important;
+  padding: 14px 26px !important;
+  min-height: 56px;
+  border-radius: 14px !important;
+  font-weight: 800 !important;
 }
 
 /* Alte Klasse weiter unterstützen (Setup-/Fehler-Seiten) */
 .tv-root {
-  font-size: 16px;
-  padding: max(2vw, 16px);
+  font-size: 18px;
+  padding: max(2vw, 20px);
   min-height: 100vh;
   color: #fff;
-  background:
-    radial-gradient(1200px 600px at 85% -10%, rgba(56, 89, 199, 0.28), transparent 60%),
-    linear-gradient(180deg, #0a1128 0%, #070b16 55%, #05070f 100%);
+  background: #000;
 }
 
 .tv-root h1 {
-  font-size: 1.6rem;
+  font-size: 1.8rem;
   line-height: 1.2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tv-focusable {
+    transition: none;
+  }
+  .tv-row {
+    scroll-snap-type: none;
+  }
 }

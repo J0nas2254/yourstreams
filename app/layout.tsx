@@ -3,6 +3,7 @@ import Link from "next/link";
 import TvRedirect from "@/components/tv-redirect";
 import StatusBanner from "./status-banner";
 import SwRegister from "./sw-register";
+import SidebarNav from "./sidebar-nav";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -15,7 +16,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#070b16",
+  themeColor: "#000000",
   width: "device-width",
   initialScale: 1
 };
@@ -32,36 +33,29 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         >
           Zum Inhalt springen
         </a>
-        <header className="sticky top-0 z-30 border-b border-white/10 bg-ink-950/85 backdrop-blur">
-          <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-2 gap-y-1 px-4 py-2.5 sm:py-3">
-            <Link href="/" className="text-lg font-black tracking-tight text-white">
-              Stream<span className="text-gold-400">Finder</span>
+        <div className="sf-shell">
+          <aside className="sf-sidebar" aria-label="Seitenleiste">
+            <Link href="/" className="sf-brand" aria-label="StreamFinder Startseite">
+              <span aria-hidden className="sf-brand-mark">S</span>
+              <span>
+                Stream<span style={{ fontWeight: 400 }}>Finder</span>
+              </span>
             </Link>
-            <nav
-              aria-label="Hauptnavigation"
-              className="no-scrollbar -mx-1 flex w-full items-center gap-1 overflow-x-auto whitespace-nowrap text-[13px] font-semibold text-slate-200 sm:mx-0 sm:w-auto sm:flex-wrap sm:overflow-visible sm:text-sm"
-            >
-              <Link data-tv className="tv-focusable shrink-0 rounded-lg px-3 py-1.5 hover:bg-white/10" href="/">Start</Link>
-              <Link data-tv className="tv-focusable shrink-0 rounded-lg px-3 py-1.5 hover:bg-white/10" href="/suche">Suche</Link>
-              <Link data-tv className="tv-focusable shrink-0 rounded-lg px-3 py-1.5 hover:bg-white/10" href="/liste">Liste</Link>
-              <Link data-tv className="tv-focusable shrink-0 rounded-lg px-3 py-1.5 hover:bg-white/10" href="/dienste">Dienste</Link>
-              <Link data-tv className="tv-focusable shrink-0 rounded-lg px-3 py-1.5 hover:bg-white/10" href="/einstellungen">Einstellungen</Link>
-              <Link data-tv className="tv-focusable shrink-0 rounded-lg px-3 py-1.5 hover:bg-white/10" href="/tv">TV</Link>
-            </nav>
+            <SidebarNav />
+            <div className="sf-sidebar-foot" style={{ marginTop: "auto", padding: "12px 10px 2px", fontSize: "0.75rem", color: "#71717a" }}>
+              <p>Region DE · Keine Wiedergabe in der App.</p>
+              <Link href="/ueber" style={{ color: "#d4d4d8", fontWeight: 700, textDecoration: "underline" }}>
+                Quellen & Über
+              </Link>
+            </div>
+          </aside>
+          <div className="sf-main">
+            <StatusBanner />
+            <main id="inhalt" className="sf-content">
+              {children}
+            </main>
           </div>
-        </header>
-        <StatusBanner />
-        <main id="inhalt" className="mx-auto w-full max-w-6xl px-4 pb-16 pt-6">
-          {children}
-        </main>
-        <footer className="border-t border-white/10">
-          <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-4 text-sm text-slate-400">
-            <p>StreamFinder · Region Deutschland (DE) · Keine Wiedergabe in der App.</p>
-            <Link href="/ueber" className="font-semibold text-slate-200 underline">
-              Quellen & Über
-            </Link>
-          </div>
-        </footer>
+        </div>
       </body>
     </html>
   );

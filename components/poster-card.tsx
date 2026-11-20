@@ -31,16 +31,16 @@ export default function PosterCard({
       <Link
         href={`/titel?id=${encodeURIComponent(title.id)}`}
         aria-label={`${title.title} – Details ansehen`}
-        className="block overflow-hidden rounded-2xl border border-white/10 bg-ink-800 transition duration-200 group-focus-within:scale-[1.04] hover:scale-[1.04] focus-visible:scale-[1.04] focus-visible:border-sky-300"
+        className="block overflow-hidden rounded-2xl border border-white/10 bg-neutral-900 transition duration-200 group-focus-within:scale-[1.04] hover:scale-[1.04] hover:border-white/40 focus-visible:scale-[1.04] focus-visible:border-white"
       >
-        <div className="relative aspect-[2/3] w-full">
+        <div className="relative aspect-[2/3] w-full bg-neutral-800">
           {src ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={src}
               alt={`Poster: ${title.title}`}
               loading="lazy"
-              className="h-full w-full object-cover"
+              className="h-full w-full object-cover grayscale-[0.15] contrast-[1.03]"
               onError={(e) => {
                 (e.target as HTMLImageElement).style.display = "none";
               }}
@@ -48,19 +48,19 @@ export default function PosterCard({
           ) : null}
           <div
             aria-hidden={!src}
-            className={`absolute inset-0 flex items-center justify-center bg-gradient-to-br from-ink-700 to-ink-900 ${
+            className={`absolute inset-0 flex items-center justify-center bg-gradient-to-br from-neutral-700 to-black ${
               src ? "hidden" : ""
             }`}
           >
-            <span className="px-2 text-center text-3xl font-black text-slate-500">{initials(title.title)}</span>
+            <span className="px-2 text-center text-3xl font-black text-neutral-400">{initials(title.title)}</span>
           </div>
           {onMyServices && (
-            <span className="absolute left-2 top-2 rounded-full bg-emerald-500 px-2 py-0.5 text-[11px] font-bold text-white">
+            <span className="absolute left-2 top-2 rounded-full bg-white px-2 py-0.5 text-[11px] font-bold text-black">
               Deine Dienste
             </span>
           )}
           {seen && (
-            <span className="absolute bottom-2 left-2 rounded-full bg-ink-950/85 px-2 py-0.5 text-[11px] font-bold text-emerald-300">
+            <span className="absolute bottom-2 left-2 rounded-full bg-black/85 px-2 py-0.5 text-[11px] font-bold text-white">
               ✓ Gesehen
             </span>
           )}
@@ -72,15 +72,15 @@ export default function PosterCard({
             {title.title}
           </Link>
         </h3>
-        <p className="text-xs text-slate-400">
+        <p className="text-xs text-neutral-400">
           {title.year ?? "?"} · {title.mediaType === "tv" ? "Serie" : "Film"}
         </p>
         {typeof title.voteAverage === "number" && (
-          <p className="mt-1 text-xs text-slate-400" aria-label={`TMDb-Bewertung ${title.voteAverage.toFixed(1)} von 10`}>
-            TMDb ★ {title.voteAverage.toFixed(1)}
+          <p className="mt-1 text-xs text-neutral-300" aria-label={`TMDb-Bewertung ${title.voteAverage.toFixed(1)} von 10`}>
+            ★ {title.voteAverage.toFixed(1)}
           </p>
         )}
-        {reason && <p className="mt-1 text-[11px] leading-snug text-gold-300">{reason}</p>}
+        {reason && <p className="mt-1 text-[11px] leading-snug text-neutral-300">{reason}</p>}
         {extra}
       </div>
     </article>

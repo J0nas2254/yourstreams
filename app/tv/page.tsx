@@ -18,13 +18,24 @@ import "./tv.css";
 
 type View = "entdecken" | "serien" | "filme" | "dienste" | "liste";
 
-const VIEWS: Array<{ id: View; label: string; icon: string }> = [
-  { id: "entdecken", label: "Entdecken", icon: "✦" },
-  { id: "serien", label: "Serien", icon: "📺" },
-  { id: "filme", label: "Filme", icon: "🎬" },
-  { id: "dienste", label: "Dienste", icon: "🧩" },
-  { id: "liste", label: "Liste", icon: "♥" }
+function TvIcon({ d }: { d: React.ReactNode }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} aria-hidden width={26} height={26}>
+      {d}
+    </svg>
+  );
+}
+
+const VIEWS: Array<{ id: View; label: string; icon: React.ReactNode }> = [
+  { id: "entdecken", label: "Entdecken", icon: <TvIcon d={<><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="3" /></>} /> },
+  { id: "serien", label: "Serien", icon: <TvIcon d={<><rect x="2.5" y="5" width="19" height="12" rx="2" /><path strokeLinecap="round" d="M9 21h6" /></>} /> },
+  { id: "filme", label: "Filme", icon: <TvIcon d={<><rect x="3" y="5" width="18" height="14" rx="2" /><path strokeLinecap="round" d="M7 5v14M17 5v14M3 10h4M3 14h4M17 10h4M17 14h4" /></>} /> },
+  { id: "dienste", label: "Dienste", icon: <TvIcon d={<><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></>} /> },
+  { id: "liste", label: "Liste", icon: <TvIcon d={<path strokeLinecap="round" strokeLinejoin="round" d="M6 7h12M6 12h12M6 17h7" />} /> }
 ];
+
+// Genre-Schnellfilter ohne Texteingabe (z. B. „ich weiß: Actionfilm“).
+const GENRE_PRESETS = ["Action", "Abenteuer", "Animation", "Komödie", "Krimi", "Drama", "Fantasy", "Horror", "Romantik", "Science-Fiction", "Thriller", "Western"];
 
 interface Discovery {
   spotlight: Title[];
@@ -88,6 +99,7 @@ function initials(title: string) {
 export default function TvPage() {
   const [view, setView] = useState<View>("entdecken");
   const [q, setQ] = useState("");
+  const [presetGenre, setPresetGenre] = useState<string | null>(null);
   const [trending, setTrending] = useState<Title[]>([]);
   const [household, setHousehold] = useState<Title[]>([]);
   const [results, setResults] = useState<Title[] | null>(null);
@@ -263,6 +275,7 @@ export default function TvPage() {
 
   async function runSearch(query: string) {
     const trimmed = query.trim();
+    setPresetGenre(null);
     if (!trimmed) {
       setResults(null);
       return;
@@ -350,7 +363,7 @@ export default function TvPage() {
     setDetailId(candidates[Math.floor(Math.random() * candidates.length)].id);
   }
 
-  function Card({ t, reason }: { t: Title; reason?: string }) {
+  function Card({ t, reason, wide }: { t: Title; reason?: string; wide?: boolean }) {
     const src = posterUrl(t.posterPath, "w342");
     return (
       <button
@@ -358,50 +371,67 @@ export default function TvPage() {
         type="button"
         onClick={() => setDetailId(t.id)}
         aria-label={`${t.title} – Details ansehen`}
-        className="tv-focusable tv-card w-36 shrink-0 snap-start overflow-hidden rounded-xl border border-white/10 bg-ink-800 text-left md:w-44"
+        className={`tv-focusable tv-card text-left ${wide ? "w-full" : "w-44 shrink-0 snap-start md:w-52"}`}
       >
-        <div className="relative aspect-[2/3] w-full bg-ink-700">
+        <div className="relative aspect-[2/3] w-full bg-neutral-800">
           {src ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={src} alt="" aria-hidden loading="lazy" className="h-full w-full object-cover" />
           ) : (
-            <div aria-hidden className="flex h-full items-center justify-center text-2xl font-black text-slate-500">
+            <div aria-hidden className="flex h-full items-center justify-center text-2xl font-black text-neutral-500">
               {initials(t.title)}
             </div>
           )}
           {onMine(t) && (
-            <span className="absolute left-2 top-2 rounded-full bg-emerald-500 px-2 py-0.5 text-xs font-bold text-white">
+            <span className="absolute left-2 top-2 rounded-full bg-white px-2.5 py-0.5 text-xs font-bold text-black">
               Deine Dienste
             </span>
           )}
           {seen.includes(t.id) && (
-            <span className="absolute bottom-2 left-2 rounded-full bg-black/75 px-2 py-0.5 text-xs font-bold text-emerald-300">
+            <span className="absolute bottom-2 left-2 rounded-full bg-black/80 px-2.5 py-0.5 text-xs font-bold text-white">
               ✓ Gesehen
             </span>
           )}
         </div>
-        <div className="p-2.5">
-          <p className="truncate text-base font-bold text-white">{t.title}</p>
-          <p className="text-xs text-slate-400">
+        <div className="p-3">
+          <p className="tv-card-title truncate font-bold text-white">{t.title}</p>
+          <p className="tv-card-meta text-neutral-400">
             {t.year ?? "?"} · {t.mediaType === "tv" ? "Serie" : "Film"}
-            {typeof imdbMap.get(t.id) === "number" ? ` · IMDb ★ ${(imdbMap.get(t.id) as number).toFixed(1)}` : ""}
+            {typeof imdbMap.get(t.id) === "number" ? ` · ★ ${(imdbMap.get(t.id) as number).toFixed(1)}` : ""}
           </p>
-          {reason && <p className="mt-1 text-xs text-gold-300">{reason}</p>}
+          {reason && <p className="mt-1 text-sm text-neutral-300">{reason}</p>}
         </div>
       </button>
     );
   }
 
+  // Disney-Stil: Überschrift + „Mehr“-Button öffnet 10-spaltiges Raster.
   function Row({ heading, titles, reasons }: { heading: string; titles: Title[]; reasons?: Map<string, string> }) {
+    const [open, setOpen] = useState(false);
     if (titles.length === 0) return null;
     return (
-      <section aria-label={heading} className="mt-6">
-        <h2 className="text-xl font-extrabold text-white">{heading}</h2>
-        <div className="no-scrollbar -mx-1 mt-4 flex snap-x gap-4 overflow-x-auto px-1 pb-2">
-          {titles.map((t) => (
-            <Card key={t.id} t={t} reason={reasons?.get(t.id)} />
-          ))}
+      <section aria-label={heading} className="mt-8">
+        <div className="tv-row-head">
+          <h2 className="tv-row-title">{heading}</h2>
+          {titles.length > 10 && (
+            <button data-tv type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="tv-focusable tv-more-btn">
+              {open ? "Weniger" : `Mehr (${titles.length})`}
+            </button>
+          )}
         </div>
+        {open ? (
+          <div className="tv-grid-all">
+            {titles.map((t) => (
+              <Card key={t.id} t={t} reason={reasons?.get(t.id)} wide />
+            ))}
+          </div>
+        ) : (
+          <div className="tv-row no-scrollbar">
+            {titles.slice(0, 12).map((t) => (
+              <Card key={t.id} t={t} reason={reasons?.get(t.id)} />
+            ))}
+          </div>
+        )}
       </section>
     );
   }
@@ -410,7 +440,7 @@ export default function TvPage() {
     return (
       <div className="tv-root text-white">
         <h1 className="text-4xl font-black">StreamFinder</h1>
-        <div className="mt-6 max-w-2xl rounded-3xl border border-white/10 bg-ink-800 p-8" role="alert">
+        <div className="mt-6 max-w-2xl rounded-3xl border border-white/10 bg-neutral-900 p-8" role="alert">
           <h2 className="text-2xl font-bold">API-Schlüssel fehlt</h2>
           <p className="mt-2 text-xl text-slate-300">
             Ohne TMDb-Schlüssel zeigt die App keine Titel – es werden keine Beispieldaten angezeigt. Lege
@@ -443,7 +473,7 @@ export default function TvPage() {
   return (
     <div className="tv-shell">
       <nav aria-label="Bereiche" className="tv-rail">
-        <div aria-hidden className="tv-rail-logo">S</div>
+        <div aria-hidden className="tv-rail-logo"><span className="tv-rail-logo-mark">S</span><span>StreamFinder</span></div>
         {VIEWS.map((v) => (
           <button
             key={v.id}
@@ -453,6 +483,7 @@ export default function TvPage() {
               setView(v.id);
               setDetailId(null);
               setResults(null);
+              setPresetGenre(null);
             }}
             aria-current={view === v.id ? "page" : undefined}
             aria-label={v.label}
@@ -470,10 +501,10 @@ export default function TvPage() {
 
       <div className="tv-main">
         <header className="mb-2">
-          <p className="tv-eyebrow">StreamFinder</p>
+          <p className="tv-eyebrow">StreamFinder · DE</p>
           <h1 className="font-black tracking-tight">{viewTitle[view]}</h1>
-          <p className="mt-1 text-sm text-slate-300">
-            Ganz nach links steuern öffnet das Menü · OK wählt · Zurück schließt die Info. Echte Daten · Deutschland (DE).
+          <p className="tv-hint mt-1">
+            Hoch / Runter: Zeilen wechseln · Links / Rechts: Titel wählen · OK: Details · Zurück: schließen.
           </p>
         </header>
 
@@ -481,22 +512,22 @@ export default function TvPage() {
         <>
           <form
             role="search"
-            className="mt-4 flex flex-wrap gap-2"
+            className="mt-4 flex flex-wrap gap-3"
             onSubmit={(e) => {
               e.preventDefault();
               runSearch(q);
             }}
           >
-            <label htmlFor="tv-suche" className="sr-only">Titel oder Genre suchen</label>
+            <label htmlFor="tv-suche" className="sr-only">Titel suchen (optional)</label>
             <input
               id="tv-suche"
               data-tv
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Film oder Serie suchen … (Tastatur öffnet sich automatisch)"
-              className="tv-focusable w-full min-w-0 max-w-2xl flex-1 rounded-xl bg-white px-4 py-2.5 text-base text-slate-900 sm:text-lg"
+              placeholder="Titel suchen – oder leer lassen und Genre wählen …"
+              className="tv-focusable tv-input w-full min-w-0 max-w-2xl flex-1 bg-white text-black"
             />
-            <button data-tv type="submit" className="tv-focusable rounded-xl bg-white px-5 py-2.5 text-lg font-extrabold text-slate-900">
+            <button data-tv type="submit" className="tv-focusable tv-btn bg-white text-black">
               Suchen
             </button>
             <button
@@ -504,11 +535,33 @@ export default function TvPage() {
               type="button"
               onClick={surprise}
               disabled={pool.length === 0}
-              className="tv-focusable rounded-xl bg-gold-400 px-5 py-2.5 text-lg font-extrabold text-slate-900 disabled:opacity-40"
+              className="tv-focusable tv-btn bg-neutral-800 text-white disabled:opacity-40"
             >
               Überrasch mich
             </button>
           </form>
+          <div className="mt-3 flex flex-wrap gap-2" aria-label="Genre-Schnellfilter ohne Texteingabe">
+            {GENRE_PRESETS.map((g) => (
+              <button
+                key={g}
+                data-tv
+                type="button"
+                aria-pressed={presetGenre === g}
+                onClick={() => {
+                  const next = presetGenre === g ? null : g;
+                  setPresetGenre(next);
+                  if (next) {
+                    setResults(pool.filter((t) => (t.genres ?? []).some((x) => x.toLowerCase().includes(next.toLowerCase().slice(0, 4)) || x === next)));
+                  } else {
+                    setResults(null);
+                  }
+                }}
+                className={`tv-focusable tv-chip${presetGenre === g ? " is-on" : ""}`}
+              >
+                {g}
+              </button>
+            ))}
+          </div>
           {filteredResults !== null ? (
             <Row heading={filteredResults.length === 0 ? "Keine Ergebnisse" : "Suchergebnisse"} titles={filteredResults} />
           ) : view === "entdecken" ? (
@@ -593,7 +646,7 @@ export default function TvPage() {
 
       {detailId && detail && (
         <div role="dialog" aria-modal="true" aria-label={detail.title} className="fixed inset-0 z-50 overflow-y-auto bg-black/85 p-[3vw]">
-          <div className="mx-auto max-w-3xl rounded-2xl border border-white/10 bg-ink-900 p-5 text-white">
+          <div className="mx-auto max-w-3xl rounded-2xl border border-white/15 bg-neutral-950 p-5 text-white">
             <h2 className="text-2xl font-black">{detail.title}</h2>
             <p className="mt-1 text-base text-slate-300">
               {detail.year ?? "?"} · {detail.mediaType === "tv" ? "Serie" : "Film"}
@@ -658,7 +711,7 @@ export default function TvPage() {
                   data-tv
                   type="button"
                   onClick={() => detail.justWatchLink && openExternal(detail.justWatchLink)}
-                  className="tv-focusable rounded-xl bg-blue-600 px-5 py-2.5 text-lg font-bold text-white"
+                  className="tv-focusable tv-btn bg-white text-black"
                 >
                   Watch-Optionen zu diesem Titel öffnen ↗
                 </button>
@@ -667,7 +720,7 @@ export default function TvPage() {
                 data-tv
                 type="button"
                 onClick={closeDetail}
-                className="tv-focusable rounded-xl bg-white px-5 py-2.5 text-lg font-extrabold text-slate-900"
+                className="tv-focusable tv-btn bg-neutral-800 text-white"
               >
                 Schließen (Zurück)
               </button>

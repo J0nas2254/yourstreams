@@ -189,9 +189,38 @@ function SucheInner() {
     router.push(`/titel?id=${encodeURIComponent(pick.id)}`);
   }
 
+  const QUICK_GENRES = ["Action", "Abenteuer", "Animation", "Komödie", "Krimi", "Drama", "Fantasy", "Horror", "Romantik", "Science-Fiction", "Thriller"];
+
+  async function quickBrowse(nextGenre: string, nextType: typeof mediaType) {
+    setGenre(nextGenre);
+    setMediaType(nextType);
+    setQ("");
+    setStatus("loading");
+    setMode("browse");
+    try {
+      const providersForBrowse = onlyMine ? prefs.services : [];
+      const gid = [...genres, ...genresTv].find((g) => g.name === nextGenre)?.id ?? null;
+      const r = await apiDiscover(providersForBrowse, {
+        genreId: gid,
+        yearFrom: yearFrom ? Number(yearFrom) : null,
+        yearTo: yearTo ? Number(yearTo) : null,
+        mediaType: nextType
+      });
+      setResults(r);
+      setStatus("ok");
+    } catch (e) {
+      if (e instanceof ApiError && e.notConfigured) setStatus("setup");
+      else {
+        setStatus("error");
+        setErrorMsg(e instanceof Error ? e.message : "Stöbern fehlgeschlagen.");
+      }
+      setResults([]);
+    }
+  }
+
   const inputCls =
-    "w-full min-w-0 max-w-full rounded-xl border border-white/15 bg-ink-950 px-2.5 py-2 text-sm text-white placeholder:text-slate-500 sm:px-3";
-  const labelCls = "flex min-w-0 flex-col gap-1 text-xs font-bold text-slate-300";
+    "w-full min-w-0 max-w-full rounded-xl border border-white/15 bg-black px-2.5 py-2 text-sm text-white placeholder:text-neutral-500 sm:px-3";
+  const labelCls = "flex min-w-0 flex-col gap-1 text-xs font-bold text-neutral-300";
 
   return (
     <div className="space-y-4">
@@ -219,12 +248,38 @@ function SucheInner() {
           {q.trim() ? "Suchen" : "Filtern"}
         </button>
       </form>
-      <p className="text-xs text-slate-400">
-        Kein Titel im Kopf? Feld leer lassen und nur Filter nutzen – jedes Feld ist optional, leere Felder
-        werden ignoriert. Ein Tipp auf „Filtern“ genügt.
+      <p className="text-xs text-neutral-400">
+        Kein Titel im Kopf? Kein Problem: Tippe unten ein Genre an – ganz ohne Texteingabe. Oder Feld leer
+        lassen und „Filtern“ drücken. Jedes Feld ist optional.
       </p>
+      <div className="flex flex-wrap gap-2" aria-label="Genre-Schnellfilter ohne Texteingabe">
+        {QUICK_GENRES.map((g) => (
+          <button
+            key={g}
+            type="button"
+            onClick={() => quickBrowse(g, mediaType)}
+            aria-pressed={genre === g}
+            className={`sf-chip${genre === g ? " is-on" : ""}`}
+          >
+            {g}
+          </button>
+        ))}
+      </div>
+      <div className="flex flex-wrap gap-2" aria-label="Art-Schnellfilter">
+        {(["all", "movie", "tv"] as const).map((m) => (
+          <button
+            key={m}
+            type="button"
+            onClick={() => quickBrowse(genre, m)}
+            aria-pressed={mediaType === m}
+            className={`sf-chip${mediaType === m ? " is-on" : ""}`}
+          >
+            {m === "all" ? "Filme & Serien" : m === "movie" ? "Nur Filme" : "Nur Serien"}
+          </button>
+        ))}
+      </div>
 
-      <fieldset className="grid grid-cols-2 gap-2 overflow-hidden rounded-2xl border border-white/10 bg-ink-800/60 p-3 sm:grid-cols-4">
+      <fieldset className="grid grid-cols-2 gap-2 overflow-hidden rounded-2xl border border-white/10 bg-neutral-900/60 p-3 sm:grid-cols-4">
         <legend className="px-1 text-xs font-bold text-slate-400">Filter</legend>
         <label className={labelCls}>
           Art
@@ -300,7 +355,7 @@ function SucheInner() {
             <button
               type="button"
               onClick={surprise}
-              className="rounded-full border border-gold-400/50 px-4 py-1.5 text-sm font-bold text-gold-300"
+              className="rounded-full border border-white/30 bg-white px-4 py-1.5 text-sm font-bold text-black"
             >
               Überrasch mich
             </button>
@@ -309,12 +364,12 @@ function SucheInner() {
       )}
 
       {status === "ok" && filtered.length > 0 && (
-        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-6" aria-label="Suchergebnisse">
+        <ul className="sf-grid-all" aria-label="Suchergebnisse">
           {filtered.map((t) => (
             <li key={t.id}>
               <PosterCard title={t} onMyServices={onMineIds.has(t.id)} seen={prefs.seen.includes(t.id)} />
               {t.imdbId && typeof imdbById.get(t.id) === "number" && (
-                <p className="mt-1 px-0.5 text-[11px] text-gold-300">IMDb ★ {(imdbById.get(t.id) as number).toFixed(1)}</p>
+                <p className="mt-1 px-0.5 text-[11px] text-neutral-300">IMDb ★ {(imdbById.get(t.id) as number).toFixed(1)}</p>
               )}
             </li>
           ))}

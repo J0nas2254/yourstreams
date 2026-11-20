@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import type { Title } from "@/lib/types";
 import PosterCard from "./poster-card";
 
@@ -19,6 +19,7 @@ export default function TitleRow({
   seenIds?: Set<string>;
   emptyText?: string;
 }) {
+  const [expanded, setExpanded] = useState(false);
   if (titles.length === 0) {
     return (
       <section aria-label={heading} className="mt-8">
@@ -35,41 +36,72 @@ export default function TitleRow({
     el.scrollBy({ left: dir * Math.max(el.clientWidth * 0.8, 300), behavior: "smooth" });
   }
 
+  const preview = expanded ? titles : titles.slice(0, 12);
+
   return (
     <section aria-label={heading} className="mt-8">
       <div className="flex items-center justify-between gap-2 px-1">
         <h2 className="text-lg font-extrabold text-white sm:text-xl">{heading}</h2>
-        <div className="flex shrink-0 gap-2">
-          <button
-            type="button"
-            onClick={() => scrollByPage(-1)}
-            aria-label={`${heading}: nach links scrollen`}
-            className="rounded-full border border-white/15 bg-ink-800 px-3 py-1 text-lg font-bold text-white hover:bg-ink-700"
-          >
-            ‹
-          </button>
-          <button
-            type="button"
-            onClick={() => scrollByPage(1)}
-            aria-label={`${heading}: nach rechts scrollen`}
-            className="rounded-full border border-white/15 bg-ink-800 px-3 py-1 text-lg font-bold text-white hover:bg-ink-700"
-          >
-            ›
-          </button>
+        <div className="flex shrink-0 items-center gap-2">
+          {titles.length > 12 && (
+            <button
+              type="button"
+              onClick={() => setExpanded((v) => !v)}
+              aria-expanded={expanded}
+              className="rounded-full border border-white/20 bg-white px-4 py-1 text-sm font-bold text-black hover:bg-neutral-200"
+            >
+              {expanded ? "Weniger" : `Mehr (${titles.length})`}
+            </button>
+          )}
+          {!expanded && (
+            <>
+              <button
+                type="button"
+                onClick={() => scrollByPage(-1)}
+                aria-label={`${heading}: nach links scrollen`}
+                className="rounded-full border border-white/15 bg-neutral-900 px-3 py-1 text-lg font-bold text-white hover:bg-neutral-800"
+              >
+                ‹
+              </button>
+              <button
+                type="button"
+                onClick={() => scrollByPage(1)}
+                aria-label={`${heading}: nach rechts scrollen`}
+                className="rounded-full border border-white/15 bg-neutral-900 px-3 py-1 text-lg font-bold text-white hover:bg-neutral-800"
+              >
+                ›
+              </button>
+            </>
+          )}
         </div>
       </div>
-      <ul ref={listRef} className="no-scrollbar -mx-1 mt-3 flex snap-x gap-3 overflow-x-auto px-1 pb-2">
-        {titles.map((t) => (
-          <li key={t.id} className="shrink-0 snap-start">
-            <PosterCard
-              title={t}
-              reason={reasons?.get(t.id)}
-              onMyServices={onMyServicesIds?.has(t.id)}
-              seen={seenIds?.has(t.id)}
-            />
-          </li>
-        ))}
-      </ul>
+      {expanded ? (
+        <ul className="sf-grid-all mt-4" aria-label={`${heading} – alle Titel`}>
+          {titles.map((t) => (
+            <li key={t.id} className="min-w-0">
+              <PosterCard
+                title={t}
+                reason={reasons?.get(t.id)}
+                onMyServices={onMyServicesIds?.has(t.id)}
+                seen={seenIds?.has(t.id)}
+              />
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <ul ref={listRef} className="no-scrollbar -mx-1 mt-3 flex snap-x gap-3 overflow-x-auto px-1 pb-2">
+          {preview.map((t) => (
+            <li key={t.id} className="shrink-0 snap-start">
+              <PosterCard
+                title={t}
+                reason={reasons?.get(t.id)}
+                onMyServices={onMyServicesIds?.has(t.id)}
+                seen={seenIds?.has(t.id)}
+              />
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 }

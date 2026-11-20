@@ -4,26 +4,34 @@
 
 :root {
   color-scheme: dark;
+  /* Monochrom-Premium (Apple-TV-like): reines Schwarz/Weiß + Graustufen */
+  --sf-bg: #000000;
+  --sf-bg-soft: #0a0a0b;
+  --sf-card: #131316;
+  --sf-card-2: #1c1c1f;
+  --sf-line: rgba(255, 255, 255, 0.12);
+  --sf-text: #f5f5f7;
+  --sf-muted: #a1a1a6;
+  --sf-focus: #ffffff;
 }
 
 html {
   scroll-behavior: smooth;
-  /* Kein seitliches Überlaufen der ganzen Seite auf dem Handy.
-     "clip" statt "hidden", damit position: sticky weiter funktioniert. */
   overflow-x: clip;
 }
 
 body {
-  background: #070b16;
-  color: #f1f5f9;
+  background: var(--sf-bg);
+  color: var(--sf-text);
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 a:focus-visible,
 button:focus-visible,
 input:focus-visible,
 select:focus-visible {
-  outline: 3px solid #7dd3fc;
+  outline: 3px solid #fff;
   outline-offset: 2px;
 }
 
@@ -43,13 +51,240 @@ select:focus-visible {
   scrollbar-width: none;
 }
 
+/* Ruhiger monochromer Hintergrund statt Blau/Gold */
 .cinema-bg {
   background:
-    radial-gradient(1200px 500px at 80% -10%, rgba(56, 89, 199, 0.28), transparent 60%),
-    radial-gradient(900px 420px at 10% 0%, rgba(232, 193, 90, 0.1), transparent 55%),
-    linear-gradient(180deg, #0b1122 0%, #070b16 100%);
+    radial-gradient(1100px 480px at 50% -10%, rgba(255, 255, 255, 0.07), transparent 60%),
+    linear-gradient(180deg, #0b0b0d 0%, #000000 100%);
 }
 
 .text-glow {
-  text-shadow: 0 2px 24px rgba(0, 0, 0, 0.8);
+  text-shadow: 0 2px 24px rgba(0, 0, 0, 0.85);
+}
+
+/* ---- App-Shell mit linker Sidebar (ersetzt obere Leiste) ---- */
+.sf-shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+.sf-sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  flex-shrink: 0;
+  width: 248px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 20px 14px;
+  background: #060607;
+  border-right: 1px solid var(--sf-line);
+  z-index: 30;
+}
+
+.sf-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px 16px;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  color: #fff;
+  font-size: 1.2rem;
+}
+
+.sf-brand-mark {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  color: #000;
+  font-weight: 900;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.sf-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sf-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 11px 12px;
+  border-radius: 12px;
+  color: var(--sf-muted);
+  font-weight: 650;
+  font-size: 0.95rem;
+  border: 1px solid transparent;
+  text-decoration: none;
+  transition: background 120ms ease, color 120ms ease, transform 120ms ease;
+}
+
+.sf-nav-item svg {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  opacity: 0.92;
+}
+
+.sf-nav-item:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: #fff;
+}
+
+.sf-nav-item.is-active {
+  background: #fff;
+  color: #000;
+}
+
+.sf-nav-item.is-active svg {
+  opacity: 1;
+}
+
+.sf-nav-item:focus {
+  outline: 3px solid #fff;
+  outline-offset: 2px;
+}
+
+.sf-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.sf-content {
+  width: 100%;
+  max-width: 120rem;
+  margin: 0 auto;
+  padding: 24px clamp(16px, 3vw, 44px) 64px;
+}
+
+/* Mobile: Sidebar wird zur unteren Tableiste */
+@media (max-width: 860px) {
+  .sf-shell {
+    flex-direction: column;
+  }
+  .sf-sidebar {
+    position: sticky;
+    top: auto;
+    bottom: 0;
+    order: 2;
+    width: 100%;
+    height: auto;
+    flex-direction: row;
+    align-items: center;
+    padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
+    border-right: none;
+    border-top: 1px solid var(--sf-line);
+    background: rgba(6, 6, 7, 0.92);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+  .sf-brand {
+    display: none;
+  }
+  .sf-sidebar-foot {
+    display: none !important;
+  }
+  .sf-nav {
+    flex-direction: row;
+    width: 100%;
+    overflow-x: auto;
+  }
+  .sf-nav-item {
+    flex: 1 0 auto;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.68rem;
+    padding: 8px 10px;
+    justify-content: center;
+    min-width: 64px;
+  }
+  .sf-nav-item svg {
+    width: 22px;
+    height: 22px;
+  }
+}
+
+/* ---- Disney-artige Rails + „Mehr“-Raster (bis 10 Spalten) ---- */
+.sf-grid-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(0, 0, 0, 0.9);
+  overflow-y: auto;
+  padding: clamp(16px, 4vw, 56px);
+}
+
+.sf-grid-all {
+  display: grid;
+  gap: 18px 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (min-width: 640px) {
+  .sf-grid-all {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .sf-grid-all {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+
+/* 1080p-TV (1920px): bis zu 10 Spalten wie gewünscht */
+@media (min-width: 1600px) {
+  .sf-grid-all {
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1900px) {
+  .sf-grid-all {
+    grid-template-columns: repeat(10, minmax(0, 1fr));
+  }
+}
+
+/* Genre-Chips für Suche ohne Text */
+.sf-chip {
+  border: 1px solid var(--sf-line);
+  background: #141416;
+  color: #e8e8ea;
+  border-radius: 999px;
+  padding: 10px 16px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+
+.sf-chip:hover {
+  background: #232326;
+  color: #fff;
+}
+
+.sf-chip.is-on {
+  background: #fff;
+  color: #000;
+  border-color: #fff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  * {
+    transition: none !important;
+  }
 }
