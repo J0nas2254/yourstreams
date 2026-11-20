@@ -93,11 +93,20 @@
     }
   }
 
+  function ph(t) {
+    return '<div class="ph" aria-hidden="true">' + esc((t.title || "?").slice(0, 2).toUpperCase()) + "</div>";
+  }
+
+  // onerror-Fallback: scheitert ein Poster (Netz/URL), erscheint das Kürzel
+  // statt eines kaputten Bild-Symbols – und der Zähler unten verrät, ob es
+  // an den Daten (ohne Poster) oder am Laden liegt.
   function card(t) {
     var src = t.posterPath ? "https://image.tmdb.org/t/p/w342" + t.posterPath : null;
     var img = src
-      ? '<img src="' + esc(src) + '" alt="" loading="lazy">'
-      : '<div class="ph" aria-hidden="true">' + esc((t.title || "?").slice(0, 2).toUpperCase()) + "</div>";
+      ? '<img src="' + esc(src) + '" alt="" loading="lazy" referrerpolicy="no-referrer" ' +
+        'onerror="this.style.display=\'none\';var n=this.nextElementSibling;if(n)n.style.display=\'flex\';">' +
+        '<div class="ph" style="display:none">' + esc((t.title || "?").slice(0, 2).toUpperCase()) + "</div>"
+      : ph(t);
     var kind = t.mediaType === "tv" ? "Serie" : "Film";
     return (
       '<a href="/titel?id=' + encodeURIComponent(t.id) + '">' +
@@ -115,6 +124,12 @@
     if (media !== "all") q.set("mediaType", media);
     q.set("page", String(p));
     return "/api/discover?" + q.toString();
+  }
+
+  function posterCount(list) {
+    var n = 0;
+    for (var i = 0; i < list.length; i++) if (list[i].posterPath) n++;
+    return n;
   }
 
   async function load() {
@@ -146,13 +161,13 @@
         }
         var list = order.slice(0, MAX);
         $("grid").innerHTML = list.map(card).join("");
-        $("count").textContent = list.length + " Titel";
+        $("count").textContent = list.length + " Titel (" + posterCount(list) + " mit Poster)";
         if (order.length >= MAX || empty) break;
         $("status").textContent = "L\u00e4dt weiter \u2026 (" + list.length + " geladen)";
       }
       var done = order.slice(0, MAX);
       $("grid").innerHTML = done.map(card).join("");
-      $("count").textContent = done.length + " Titel";
+      $("count").textContent = done.length + " Titel (" + posterCount(done) + " mit Poster)";
       $("status").textContent = done.length === 0 ? "Keine Ergebnisse \u2013 Filter anpassen." : "";
     } catch (e) {
       $("count").textContent = "Fehler";
