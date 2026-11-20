@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Browser } from "@capacitor/browser";
 import type { Genre, Title } from "@/lib/types";
 import { ApiError, apiDiscover, apiGenres, apiImdbRating, apiProviders, apiSeasonEpisodes, apiTitle, apiTrending, isCapacitorAndroid } from "@/lib/api.ts";
@@ -535,7 +535,30 @@ export default function TvPage() {
     const [open, setOpen] = useState(false);
     const [all, setAll] = useState<Title[] | null>(null);
     const [loading, setLoading] = useState(false);
+    // Lazy: erst laden, wenn die Schiene in Srollnähe kommt – spart
+    // Anfragen beim Start (8 Schienen × 2 Seiten würden sofort feuern).
+    const rowRef = useRef<HTMLElement | null>(null);
+    const [visible, setVisible] = useState(false);
     useEffect(() => {
+      const el = rowRef.current;
+      if (!el || typeof IntersectionObserver === "undefined") {
+        setVisible(true);
+        return;
+      }
+      const obs = new IntersectionObserver(
+        (entries) => {
+          if (entries.some((e) => e.isIntersecting)) {
+            setVisible(true);
+            obs.disconnect();
+          }
+        },
+        { rootMargin: "600px 0px" }
+      );
+      obs.observe(el);
+      return () => obs.disconnect();
+    }, []);
+    useEffect(() => {
+      if (!visible) return;
       let cancelled = false;
       async function load() {
         if (genreId == null) {
@@ -558,7 +581,7 @@ export default function TvPage() {
       return () => {
         cancelled = true;
       };
-    }, [genreId, media]);
+    }, [genreId, media, visible]);
     async function toggle() {
       if (open) {
         setOpen(false);
@@ -587,7 +610,7 @@ export default function TvPage() {
     }
     if (preview === null) {
       return (
-        <section aria-label={name} className="mt-8">
+        <section aria-label={name} className="mt-8" ref={rowRef as React.RefObject<HTMLElement>}>
           <h2 className="tv-row-title">{name}</h2>
           <p className="mt-2 text-sm text-slate-400" aria-live="polite">Lädt …</p>
         </section>
@@ -596,7 +619,7 @@ export default function TvPage() {
     if (preview.length === 0) return null;
     const grid = (open ? (all ?? preview) : preview).slice(0, 220);
     return (
-      <section aria-label={name} className="mt-8">
+      <section aria-label={name} className="mt-8" ref={rowRef as React.RefObject<HTMLElement>}>
         <div className="tv-row-head">
           <h2 className="tv-row-title">{name}</h2>
           <button data-tv type="button" onClick={() => void toggle()} aria-expanded={open} className="tv-focusable tv-more-btn">
