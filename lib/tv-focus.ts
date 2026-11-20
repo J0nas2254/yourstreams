@@ -151,9 +151,26 @@ export function useTvFocus(enabled: boolean, onBack?: () => void) {
       // Enter/Space auf TV-Fernbedienungen kommt als keydown – nativ behandeln lassen.
       if (e.key === "Escape" || e.key === "Backspace" || e.key === "GoBack") {
         if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA")) {
-          // In Eingabefeldern erst Tastatur schließen lassen (2. Zurück schließt Dialog).
-          if (document.activeElement === target) {
-            (target as HTMLInputElement).blur();
+          const field = target as HTMLInputElement;
+          const textLike =
+            target.tagName === "TEXTAREA" ||
+            ![
+              "checkbox",
+              "radio",
+              "button",
+              "submit",
+              "reset",
+              "range",
+              "color",
+              "file",
+              "hidden"
+            ].includes(field.type ?? "text");
+          if (textLike && document.activeElement === target) {
+            // Echte Löschtaste beim Tippen (PC-Tastatur): Zeichen löschen lassen.
+            // Nur im leeren Feld wirkt Zurück wie sonst (Fokus weg, 2. Mal zurück).
+            if (e.key === "Backspace" && (field.value ?? "").length > 0) return;
+            // In Eingabefeldern erst Tastatur schließen lassen (2. Zurück schließt Dialog).
+            field.blur();
             e.preventDefault();
             return;
           }
