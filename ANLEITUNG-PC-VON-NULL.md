@@ -19,11 +19,12 @@ Wichtig aus `README.md` / `.env.example`:
 ## 1. Was du auf dem PC brauchst
 
 1. **Git für Windows** (mit Git Bash, aber Befehle unten sind für PowerShell)
-2. **Node.js 18+ LTS** (LTS nehmen, inklusive npm)
+2. **Node.js 22 oder neuer LTS** (z. B. 24 oder 26 LTS, inklusive npm)
    ```powershell
    node -v
    npm -v
    ```
+   `node -v` muss `v22.x` oder höher zeigen: `@capacitor/cli` 8 und `wrangler` 4 verlangen mindestens Node 22, mit Node 20 bricht `npx cap sync` ab.
 3. **JDK 17** (genau 17, kein 21 / 25 für diesen Build)
    ```powershell
    java -version

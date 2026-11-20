@@ -12,7 +12,7 @@ Beispieldaten.
 
 ## Voraussetzungen
 
-- Node.js 18+
+- Node.js 22+ (LTS, z. B. 24 oder 26 – `@capacitor/cli` 8 und `wrangler` 4 verlangen mindestens 22)
 - Für echte Daten: TMDb-Schlüssel (Pflicht), OMDb-Schlüssel (optional, für IMDb-Bewertungen)
 
 ## API-Schlüssel einrichten (lokal, privat)

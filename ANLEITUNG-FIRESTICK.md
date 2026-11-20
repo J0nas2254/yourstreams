@@ -92,7 +92,7 @@ Solange das Backend offline ist, zeigt die APK nur die Einrichtungsmeldung, kein
 
 ### 1. Voraussetzungen auf Mac oder PC (einmalig)
 
-- Node.js 18+ (Mac zusätzlich: Xcode Command Line Tools)
+- Node.js 22+ LTS (Mac zusätzlich: Xcode Command Line Tools)
 - **JDK 17**, Android SDK (Platform, Build-Tools, Platform-Tools / `adb`), `ANDROID_HOME` gesetzt, SDK-Lizenzen akzeptiert
 
 Prüfen mit (Mac: Terminal, PC: PowerShell):
