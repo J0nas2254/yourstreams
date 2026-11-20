@@ -431,7 +431,7 @@ export default function TvPage() {
   }
 
   // Stöbern mit ALLEN Filterkriterien: Genre + Jahr + Dienste + Inklusive.
-  // Lädt automatisch die besten bis zu 220 Treffer (nach Beliebtheit).
+  // Lädt automatisch die besten bis zu 120 Treffer (3 Discover-Seiten à 40, parallel).
   async function runBrowse(genre: string | null, wantView?: View) {
     const want = wantView ?? view;
     const wantMedia = want === "serien" ? "tv" : want === "filme" ? "movie" : "all";
@@ -440,19 +440,25 @@ export default function TvPage() {
       const gid = genre ? genreIdFor(genre, wantMedia) : null;
       const map = new Map<string, Title>();
       const provs = fOnlyMine ? services : [];
-      for (let page = 1; page <= 11; page += 1) {
-        const r = await apiDiscover(provs, {
-          genreId: gid,
-          yearFrom: fYearFrom ? Number(fYearFrom) : null,
-          yearTo: fYearTo ? Number(fYearTo) : null,
-          mediaType: wantMedia,
-          page
-        });
-        if (r.length === 0) break;
+      const batches = await Promise.all(
+        [1, 2, 3].map((page) =>
+          apiDiscover(provs, {
+            genreId: gid,
+            yearFrom: fYearFrom ? Number(fYearFrom) : null,
+            yearTo: fYearTo ? Number(fYearTo) : null,
+            mediaType: wantMedia,
+            page
+          }).then(
+            (r) => r,
+            () => [] as Title[]
+          )
+        )
+      );
+      for (const r of batches) {
         for (const t of r) if (!map.has(t.id)) map.set(t.id, t);
-        if (map.size >= 220) break;
+        if (map.size >= 120) break;
       }
-      let list = [...map.values()].slice(0, 220);
+      let list = [...map.values()].slice(0, 120);
       if (fIncluded) {
         list = list.filter((t) => t.availability.some((a) => a.kind === "flatrate" || a.kind === "free" || a.kind === "ads"));
       }
@@ -511,8 +517,8 @@ export default function TvPage() {
     );
   }
 
-  // App-Stil: Überschrift + „Top 220“-Button lädt die besten Titel des Genres
-  // per Discover-Seiten (bis zu 220) und zeigt sie im Raster.
+  // App-Stil: Überschrift + „Top 120“-Button lädt die besten Titel des Genres
+  // per Discover-Seiten (bis zu 120) und zeigt sie im Raster.
   function Row({
     heading,
     titles,
@@ -546,22 +552,24 @@ export default function TvPage() {
       try {
         const map = new Map<string, Title>();
         for (const t of titles) map.set(t.id, t);
-        for (let page = 1; page <= 11; page += 1) {
-          try {
-            const r = await apiDiscover([], { genreId, mediaType: media ?? "all", page });
-            if (r.length === 0) break;
-            for (const t of r) if (!map.has(t.id)) map.set(t.id, t);
-            if (map.size >= 220) break;
-          } catch {
-            break;
-          }
+        const batches = await Promise.all(
+          [1, 2, 3].map((page) =>
+            apiDiscover([], { genreId, mediaType: media ?? "all", page }).then(
+              (r) => r,
+              () => [] as Title[]
+            )
+          )
+        );
+        for (const r of batches) {
+          for (const t of r) if (!map.has(t.id)) map.set(t.id, t);
+          if (map.size >= 120) break;
         }
-        setAll([...map.values()].slice(0, 220));
+        setAll([...map.values()].slice(0, 120));
       } finally {
         setLoadingMore(false);
       }
     }
-    const grid = (open ? (all ?? titles) : titles).slice(0, 220);
+    const grid = (open ? (all ?? titles) : titles).slice(0, 120);
     return (
       <section aria-label={heading} className="mt-8">
         <div className="tv-row-head">
@@ -569,16 +577,16 @@ export default function TvPage() {
           {canExpand &&
             (onTop ? (
               <button data-tv type="button" onClick={onTop} className="tv-focusable tv-more-btn">
-                {topLabel ?? "Top 220 ansehen"}
+                {topLabel ?? "Top 120 ansehen"}
               </button>
             ) : (
               <button data-tv type="button" onClick={() => void toggle()} aria-expanded={open} className="tv-focusable tv-more-btn">
-                {open ? "Weniger" : genreId != null ? "Top 220" : `Mehr (${titles.length})`}
+                {open ? "Weniger" : genreId != null ? "Top 120" : `Mehr (${titles.length})`}
               </button>
             ))}
         </div>
         {loadingMore && open && (
-          <p className="mt-2 text-base text-slate-300" aria-live="polite">Lade Top 220 …</p>
+          <p className="mt-2 text-base text-slate-300" aria-live="polite">Lade Top 120 …</p>
         )}
         {open ? (
           <div className="tv-grid-all">
@@ -598,7 +606,7 @@ export default function TvPage() {
   }
 
   // Netflix-Stil: eine Schiene pro Genre, jede mit echten Discover-Daten.
-  // Vorschaureihe lädt sofort, „Top 220“ lädt bis zu 220 Titel des Genres.
+  // Vorschaureihe lädt sofort, „Top 120“ lädt bis zu 120 Titel des Genres.
   function GenreRow({ name, genreId, media }: { name: string; genreId: number | null; media: "movie" | "tv" | "all" }) {
     const [preview, setPreview] = useState<Title[] | null>(null);
     // Lazy: erst laden, wenn die Schiene in Srollnähe kommt – spart
@@ -669,7 +677,7 @@ export default function TvPage() {
             }
             className="tv-focusable tv-more-btn"
           >
-            Top 220
+            Top 120
           </button>
         </div>
         <div className="tv-row no-scrollbar">
@@ -974,7 +982,7 @@ export default function TvPage() {
               <Row
                 heading={`Top ${filteredResults.length}${presetGenre ? ` · ${presetGenre}` : ""}`}
                 titles={filteredResults}
-                topLabel="Top 220 ansehen"
+                topLabel="Top 120 ansehen"
                 onTop={() => {
                   const q = new URLSearchParams({
                     media: view === "serien" ? "tv" : view === "filme" ? "movie" : "all"

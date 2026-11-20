@@ -13,7 +13,7 @@ import SetupNotice from "@/components/setup-notice";
 import TitleRow from "@/components/title-row";
 import PosterCard from "@/components/poster-card";
 
-/** Eine Genre-Schiene: Vorschaureihe + „Mehr“ lädt die besten ~220 per Discover-Seiten. */
+/** Eine Genre-Schiene: Vorschaureihe + „Mehr“ lädt die besten ~120 per Discover-Seiten. */
 function GenreRail({
   heading,
   genreId,
@@ -41,18 +41,20 @@ function GenreRail({
     try {
       const seen = new Map<string, Title>();
       for (const t of preview) seen.set(t.id, t);
-      // TMDb-Discover: ~20 Treffer/Seite → Seiten 1..11 ≈ bis zu 220 Titel.
-      for (let page = 1; page <= 11; page += 1) {
-        try {
-          const r = await apiDiscover([], { genreId, page });
-          if (r.length === 0) break;
-          for (const t of r) if (!seen.has(t.id)) seen.set(t.id, t);
-          if (seen.size >= 220) break;
-        } catch {
-          break;
-        }
+      // TMDb-Discover: ~40 Treffer/Abruf (Film + Serie) → Seiten 1..3 ≈ bis zu 120 Titel.
+      const batches = await Promise.all(
+        [1, 2, 3].map((page) =>
+          apiDiscover([], { genreId, page }).then(
+            (r) => r,
+            () => [] as Title[]
+          )
+        )
+      );
+      for (const r of batches) {
+        for (const t of r) if (!seen.has(t.id)) seen.set(t.id, t);
+        if (seen.size >= 120) break;
       }
-      setAll([...seen.values()].slice(0, 220));
+      setAll([...seen.values()].slice(0, 120));
     } catch {
       setFailed(true);
     } finally {
@@ -60,7 +62,7 @@ function GenreRail({
     }
   }
 
-  const grid = (all ?? preview).slice(0, 220);
+  const grid = (all ?? preview).slice(0, 120);
   return (
     <section aria-label={heading} className="mt-8">
       <div className="flex items-center justify-between gap-2 px-1">
@@ -71,7 +73,7 @@ function GenreRail({
           aria-expanded={open}
           className="shrink-0 rounded-full border border-white/20 bg-white px-4 py-1 text-sm font-bold text-black hover:bg-neutral-200"
         >
-                      {open ? "Weniger" : `Top 220 ${heading}`}
+                      {open ? "Weniger" : `Top 120 ${heading}`}
         </button>
       </div>
       {open ? (
