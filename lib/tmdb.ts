@@ -131,15 +131,22 @@ async function genreNameMap(overrideKey?: string): Promise<Map<number, string>> 
 
 export async function enrichWithProviders(items: any[], limit = 12, overrideKey?: string): Promise<Title[]> {
   const names = await genreNameMap(overrideKey);
-  const out: Title[] = [];
-  for (const item of items.slice(0, limit)) {
+  const sliced = items.slice(0, limit);
+  const bases = sliced.map((item) => {
     const base = baseTitle(item);
     if (base.genres.length === 0 && Array.isArray(base.genreIds)) {
       base.genres = base.genreIds
         .map((id) => names.get(id))
         .filter((n): n is string => typeof n === "string");
     }
-    out.push(await withProviders(base, overrideKey));
+    return base;
+  });
+  // Anbieter parallel in Blöcken (je 10) anreichern statt einzeln nacheinander –
+  // sonst dauert eine Top-220-Seite mit 40 Titeln ewig.
+  const out: Title[] = [];
+  for (let i = 0; i < bases.length; i += 10) {
+    const chunk = await Promise.all(bases.slice(i, i + 10).map((b) => withProviders(b, overrideKey)));
+    out.push(...chunk);
   }
   return out;
 }
@@ -243,7 +250,9 @@ export async function tmdbDiscoverByProviders(
     ...((tv?.results ?? []).map((r: any) => ({ ...r, media_type: "tv" })))
   ];
   items.sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0));
-  return enrichWithProviders(items, 12, overrideKey);
+  // Film-Seite (20) + Serien-Seite (20) voll anreichern, sonst kommen pro
+  // Discover-Abruf nur 12 Titel an und „Top 220“ bleibt fast leer.
+  return enrichWithProviders(items, 40, overrideKey);
 }
 
 export async function tmdbGenres(overrideKey?: string): Promise<{ movie: Genre[]; tv: Genre[] }> {

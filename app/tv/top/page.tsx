@@ -10,9 +10,10 @@ import { posterUrl } from "@/lib/images";
 import "../tv.css";
 
 // Echte Unterseite für eine Auswahl: Genre (+ Filter) mit bis zu 220 Titeln.
-// Lädt schnell (2 Discover-Seiten ≈ 40 Titel), Rest per „Mehr laden“ –
-// seitenweise statt alles auf einmal, damit nichts ewig lädt.
-const PAGES_PER_LOAD = 2;
+// Ein Discover-Abruf liefert bis zu 40 Titel (Film- + Serien-Seite);
+// 3 Abrufe parallel ≈ bis zu 120 Titel sofort, Rest per „Mehr laden“
+// bis Seite 11 (bis zu 220 Titel).
+const PAGES_PER_LOAD = 3;
 const MAX_PAGES = 11;
 
 type Media = "movie" | "tv" | "all";
@@ -108,21 +109,30 @@ function TopInner() {
       const map = new Map<string, Title>();
       for (const t of base) map.set(t.id, t);
       let reachedEnd = false;
+      // Seiten parallel laden statt nacheinander – sonst dauert Top 220 ewig.
+      const pagesToLoad: number[] = [];
+      for (let p = from; p < from + count && p <= MAX_PAGES; p += 1) pagesToLoad.push(p);
       let last = from - 1;
-      for (let p = from; p < from + count && p <= MAX_PAGES; p += 1) {
-        const r = await apiDiscover(provs, {
-          genreId: s.gid,
-          yearFrom: s.yearFrom ? Number(s.yearFrom) : null,
-          yearTo: s.yearTo ? Number(s.yearTo) : null,
-          mediaType: s.media,
-          page: p
-        });
-        last = p;
-        if (r.length === 0) {
-          reachedEnd = true;
-          break;
-        }
-        for (const t of r) if (!map.has(t.id)) map.set(t.id, t);
+      const batches = await Promise.all(
+        pagesToLoad.map((p) =>
+          apiDiscover(provs, {
+            genreId: s.gid,
+            yearFrom: s.yearFrom ? Number(s.yearFrom) : null,
+            yearTo: s.yearTo ? Number(s.yearTo) : null,
+            mediaType: s.media,
+            page: p
+          }).then(
+            (r) => ({ page: p, results: r }),
+            () => ({ page: p, results: [] as Title[] })
+          )
+        )
+      );
+      batches.sort((a, b) => a.page - b.page);
+      for (const { page, results } of batches) {
+        last = page;
+        // TMDb-Seiten sind fortlaufend: eine leere Seite heißt Ende aller Seiten.
+        if (results.length === 0) reachedEnd = true;
+        for (const t of results) if (!map.has(t.id)) map.set(t.id, t);
         if (map.size >= 220) break;
       }
       let list = [...map.values()].slice(0, 220);
