@@ -1,22 +1,26 @@
-import { NextResponse } from "next/server";
+import { apiJson, apiOptions } from "@/lib/api-cors";
 import { hasTmdbKey, tmdbKeyFromRequest, tmdbSearch } from "@/lib/tmdb";
+
+export function OPTIONS() {
+  return apiOptions();
+}
 
 export async function GET(req: Request) {
   const localKey = tmdbKeyFromRequest(req);
   if (!hasTmdbKey(localKey)) {
-    return NextResponse.json(
+    return apiJson(
       { configured: false, error: "TMDb ist nicht konfiguriert. Lege TMDB_API_KEY als Server-Variable an (lokal .env.local, gehostet: Einstellungen → Secrets)." },
       { status: 503 }
     );
   }
   const url = new URL(req.url);
   const q = (url.searchParams.get("q") ?? "").trim();
-  if (!q) return NextResponse.json({ configured: true, results: [] });
+  if (!q) return apiJson({ configured: true, results: [] });
   try {
     const results = await tmdbSearch(q, localKey);
-    return NextResponse.json({ configured: true, results });
+    return apiJson({ configured: true, results });
   } catch {
-    return NextResponse.json(
+    return apiJson(
       { configured: true, error: "Suche fehlgeschlagen. Bitte später erneut versuchen." },
       { status: 502 }
     );
