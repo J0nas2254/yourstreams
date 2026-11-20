@@ -45,6 +45,15 @@ if (existsSync(API_DIR)) {
 }
 backup();
 
+// Die generierten Next-Routentypen (.next/dev, .next/types) stammen ggf. aus
+// einem Server-Build und referenzieren app/api. Weil app/api fuer den Export
+// beiseite gelegt wird, wuerde der Typecheck sonst auf veralteten Imports
+// scheitern ("Cannot find module .../route.js") und kein out-next entstehen.
+// Next generiert sie neu; der postbuild-Server-Build stellt sie wieder her.
+for (const d of [".next/dev", ".next/types"]) {
+  if (existsSync(d)) rmSync(d, { recursive: true, force: true });
+}
+
 const child = spawn("npx next build", {
   stdio: "inherit",
   shell: true,
