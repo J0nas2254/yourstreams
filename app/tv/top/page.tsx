@@ -270,6 +270,16 @@ function TopInner() {
             Anwenden
           </button>
         </div>
+        <div className="mt-3">
+          <Link
+            data-tv
+            href={`/top220.html?${new URLSearchParams({ genre, media }).toString()}`}
+            className="tv-focusable tv-more-btn"
+            style={{ textDecoration: "none" }}
+          >
+            Einfache Ansicht (statische Top-220-Liste)
+          </Link>
+        </div>
 
         {failed && titles.length === 0 ? (
           <div className="mt-6">

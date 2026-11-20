@@ -28,6 +28,7 @@
 <header>
   <h1>Top 220 &middot; <span id="gname">Alle Genres</span></h1>
   <div id="count" aria-live="polite">L&auml;dt &hellip;</div>
+  <div style="margin-top:8px"><a id="back" href="/tv" style="color:#fff;font-size:16px">&larr; Zur&uuml;ck zur App</a></div>
 </header>
 <div id="controls">
   <label>Genre
@@ -170,6 +171,11 @@
       $("genre").value = q.get("genre");
     }
     if (q.get("media")) $("media").value = q.get("media");
+    var bq = new URLSearchParams();
+    if (q.get("genre")) bq.set("genre", q.get("genre"));
+    if (q.get("media")) bq.set("media", q.get("media"));
+    var bs = bq.toString();
+    $("back").href = bs ? ("/tv/top?" + bs) : "/tv";
     $("apply").addEventListener("click", load);
     loadGenres().then(load, load);
   })();
