@@ -75,6 +75,9 @@ export interface Prefs {
   seenEpisodes: Record<string, number[]>;
   interests: Record<string, Interest>; // titleId -> up/down
   notInterested: string[];
+  /** Genre-Schnappschuss zum Zeitpunkt der Bewertung – damit „Interessiert mich“
+   *  auch wirkt, wenn der bewertete Titel gerade nicht im geladenen Pool ist. */
+  interestGenres: Record<string, string[]>;
 }
 
 export const EMPTY_PREFS: Prefs = {
@@ -83,7 +86,8 @@ export const EMPTY_PREFS: Prefs = {
   seen: [],
   seenEpisodes: {},
   interests: {},
-  notInterested: []
+  notInterested: [],
+  interestGenres: {}
 };
 
 export interface ScoredTitle {

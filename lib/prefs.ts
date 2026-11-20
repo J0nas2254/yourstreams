@@ -9,7 +9,7 @@ export const PREFS_KEY = "sf:prefs:v2";
 
 export function emptyPrefs(): Prefs {
   // Free TV ist standardmäßig dabei (ein Punkt statt vieler Free-Einzeldienste).
-  return { services: [FREE_TV_ID], watchlist: [], seen: [], seenEpisodes: {}, interests: {}, notInterested: [] };
+  return { services: [FREE_TV_ID], watchlist: [], seen: [], seenEpisodes: {}, interests: {}, notInterested: [], interestGenres: {} };
 }
 
 export function migrateLegacy(raw: unknown): Prefs {
@@ -43,6 +43,16 @@ export function migrateLegacy(raw: unknown): Prefs {
   if (Array.isArray(r.notInterested)) {
     base.notInterested = (r.notInterested as unknown[]).filter((s) => typeof s === "string") as string[];
   }
+  if (typeof r.interestGenres === "object" && r.interestGenres !== null) {
+    const out: Record<string, string[]> = {};
+    for (const [k, v] of Object.entries(r.interestGenres as Record<string, unknown>)) {
+      if (Array.isArray(v)) {
+        const gs = (v as unknown[]).filter((s) => typeof s === "string") as string[];
+        if (gs.length > 0) out[k] = [...new Set(gs)];
+      }
+    }
+    base.interestGenres = out;
+  }
   // Altes Format sf:watchlist:v1 einmischen (wird vom Hook übergeben)
   if (Array.isArray((r as { legacyWatchlist?: unknown }).legacyWatchlist)) {
     const legacy = (r as { legacyWatchlist: unknown[] }).legacyWatchlist;
@@ -62,7 +72,9 @@ function genreNames(t: Title): string[] {
   return t.genres ?? [];
 }
 
-/** Gewichtung der Genres aus expliziten Interessen (+2/-2) plus schwachem Merklisten-Signal (+0.5). */
+/** Gewichtung der Genres aus expliziten Interessen (+2/-2) plus schwachem Merklisten-Signal (+0.5).
+ *  Fällt ein bewerteter Titel aus dem aktuellen Pool, greift der gespeicherte
+ *  Genre-Schnappschuss (interestGenres) – die Bewertung verpufft nicht. */
 export function genreWeights(prefs: Prefs, pool: Title[]): Map<string, number> {
   const weights = new Map<string, number>();
   const byId = new Map(pool.map((t) => [t.id, t]));
@@ -73,9 +85,10 @@ export function genreWeights(prefs: Prefs, pool: Title[]): Map<string, number> {
   }
   for (const [id, dir] of Object.entries(prefs.interests)) {
     const t = byId.get(id);
-    if (!t) continue;
+    const gs = t ? genreNames(t) : (prefs.interestGenres?.[id] ?? []);
+    if (gs.length === 0) continue;
     const delta = dir === "up" ? 2 : -2;
-    for (const g of genreNames(t)) weights.set(g, (weights.get(g) ?? 0) + delta);
+    for (const g of gs) weights.set(g, (weights.get(g) ?? 0) + delta);
   }
   return weights;
 }

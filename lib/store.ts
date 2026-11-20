@@ -157,15 +157,21 @@ export function usePrefs() {
   );
 
   const setInterest = useCallback(
-    (id: string, dir: "up" | "down" | null) =>
+    (id: string, dir: "up" | "down" | null, genres?: string[]) =>
       update((prev) => {
         const interests = { ...prev.interests };
-        if (dir === null) delete interests[id];
-        else interests[id] = dir;
+        const interestGenres = { ...(prev.interestGenres ?? {}) };
+        if (dir === null) {
+          delete interests[id];
+          delete interestGenres[id];
+        } else {
+          interests[id] = dir;
+          if (genres && genres.length > 0) interestGenres[id] = [...new Set(genres)];
+        }
         const notInterested = dir === "down"
           ? [...new Set([...prev.notInterested, id])]
           : prev.notInterested.filter((n) => n !== id);
-        return { ...prev, interests, notInterested };
+        return { ...prev, interests, notInterested, interestGenres };
       }),
     [update]
   );
@@ -243,6 +249,7 @@ export function usePrefs() {
         ...prev,
         interests: {},
         notInterested: [],
+        interestGenres: {},
         seen: [],
         seenEpisodes: {}
       })),

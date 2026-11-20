@@ -157,7 +157,7 @@ export default function TitelDetail() {
                 interest={interest}
                 onToggleWatch={onToggleWatch}
                 onToggleSeen={handleToggleSeen}
-                onSetInterest={(dir) => setInterest(title.id, dir)}
+                onSetInterest={(dir) => setInterest(title.id, dir, title.genres)}
               />
             </div>
             {isSeries && seasons.length > 0 && (

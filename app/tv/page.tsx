@@ -1,11 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Browser } from "@capacitor/browser";
 import type { Title } from "@/lib/types";
 import { ApiError, apiDiscover, apiImdbRating, apiProviders, apiSeasonEpisodes, apiTitle, apiTrending, isCapacitorAndroid } from "@/lib/api.ts";
 import { isOnMyServicesEntries, usePrefs } from "@/lib/store";
-import { nextUnseenEpisode, scoreTitles } from "@/lib/prefs.ts";
+import { genreWeights, nextUnseenEpisode } from "@/lib/prefs.ts";
 import EpisodeTracker, { useSeriesEpisodes } from "@/components/episode-tracker";
 import { posterUrl } from "@/lib/images";
 import { AVAILABILITY_LABELS } from "@/lib/types";
@@ -16,13 +16,58 @@ import { FREE_TV_ID, FREE_TV_LABEL, filterFreeProviders } from "@/lib/free-tv";
 import ProviderGroupList from "@/components/provider-group-list";
 import "./tv.css";
 
-type Tab = "suchen" | "dienste" | "liste";
+type View = "entdecken" | "serien" | "filme" | "dienste" | "liste";
 
-const TABS: Array<{ id: Tab; label: string }> = [
-  { id: "suchen", label: "Suchen" },
-  { id: "dienste", label: "Meine Dienste" },
-  { id: "liste", label: "Meine Liste" }
+const VIEWS: Array<{ id: View; label: string; icon: string }> = [
+  { id: "entdecken", label: "Entdecken", icon: "✦" },
+  { id: "serien", label: "Serien", icon: "📺" },
+  { id: "filme", label: "Filme", icon: "🎬" },
+  { id: "dienste", label: "Dienste", icon: "🧩" },
+  { id: "liste", label: "Liste", icon: "♥" }
 ];
+
+interface Discovery {
+  spotlight: Title[];
+  reasons: Map<string, string>;
+  genreRails: Array<{ heading: string; titles: Title[] }>;
+}
+
+// Stellt Rails aus echten Titeln zusammen: Lieblings-Genres zuerst, täglich
+// neu rotiert und ohne Wiederholung über die Rails hinweg.
+function buildDiscovery(pool: Title[], liked: Set<string>, day: number): Discovery {
+  const rotated = (arr: Title[], n: number) =>
+    arr.length === 0 ? arr : [...arr.slice(n % arr.length), ...arr.slice(0, n % arr.length)];
+  const likedTitles = pool.filter((t) => (t.genres ?? []).some((g) => liked.has(g)));
+  const rest = pool.filter((t) => !(t.genres ?? []).some((g) => liked.has(g)));
+  const ordered = [...rotated(likedTitles, day), ...rotated(rest, day + 3)];
+  const used = new Set<string>();
+  const spotlight: Title[] = [];
+  const reasons = new Map<string, string>();
+  for (const t of ordered) {
+    if (used.has(t.id)) continue;
+    used.add(t.id);
+    const matched = (t.genres ?? []).filter((g) => liked.has(g)).slice(0, 2);
+    if (matched.length > 0) reasons.set(t.id, `Weil: ${matched.join(" & ")} – passt zu deinen 👍`);
+    spotlight.push(t);
+    if (spotlight.length >= 12) break;
+  }
+  const counts = new Map<string, number>();
+  for (const t of pool) {
+    if (used.has(t.id)) continue;
+    for (const g of t.genres ?? []) counts.set(g, (counts.get(g) ?? 0) + 1);
+  }
+  const tops = [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([g]) => g).slice(0, 6);
+  const genreRails: Array<{ heading: string; titles: Title[] }> = [];
+  tops.forEach((g, gi) => {
+    const titles = rotated(
+      pool.filter((t) => !used.has(t.id) && (t.genres ?? []).includes(g)),
+      day + gi * 5
+    ).slice(0, 10);
+    titles.forEach((t) => used.add(t.id));
+    if (titles.length >= 3) genreRails.push({ heading: g, titles });
+  });
+  return { spotlight, reasons, genreRails };
+}
 
 async function openExternal(url: string) {
   try {
@@ -41,7 +86,7 @@ function initials(title: string) {
 }
 
 export default function TvPage() {
-  const [tab, setTab] = useState<Tab>("suchen");
+  const [view, setView] = useState<View>("entdecken");
   const [q, setQ] = useState("");
   const [trending, setTrending] = useState<Title[]>([]);
   const [household, setHousehold] = useState<Title[]>([]);
@@ -143,11 +188,11 @@ export default function TvPage() {
   useEffect(() => {
     if (status !== "ok" || detailId) return;
     const t = window.setTimeout(() => {
-      const first = document.querySelector<HTMLElement>("main [data-tv], .tv-root [data-tv]");
+      const first = document.querySelector<HTMLElement>(".tv-main [data-tv], .tv-shell [data-tv]");
       first?.focus({ preventScroll: true });
     }, 150);
     return () => window.clearTimeout(t);
-  }, [status, detailId, tab]);
+  }, [status, detailId, view]);
 
   // Wenn die Film-Info aufgeht, Fokus in den Dialog holen.
   // Zusammen mit der Fokus-Falle in lib/tv-focus.ts bewegt sich
@@ -237,17 +282,66 @@ export default function TvPage() {
     return [...map.values()];
   }, [trending, household, results]);
 
-  const forYou = useMemo(
-    () => (loaded && status === "ok" ? scoreTitles(pool, prefs).filter((s) => s.score > 0).slice(0, 12) : []),
-    [pool, prefs, loaded, status]
-  );
-
   const onMine = useCallback(
     (t: Title) => isOnMyServicesEntries(t.availability, services),
     [services]
   );
 
-  const shownSuchen = results ?? trending;
+  const unseen = useMemo(
+    () => pool.filter((t) => !seen.includes(t.id) && !prefs.notInterested.includes(t.id)),
+    [pool, seen, prefs.notInterested]
+  );
+
+  const likedGenres = useMemo(() => {
+    const w = loaded && status === "ok" ? genreWeights(prefs, pool) : new Map<string, number>();
+    return new Set([...w.entries()].filter(([, v]) => v > 0).map(([g]) => g));
+  }, [loaded, status, prefs, pool]);
+
+  // Tagesversatz: mischt die Reihenfolge jeden Tag neu, damit nicht immer
+  // dieselben Titel oben stehen. Echte Daten, nur anders rotiert.
+  const dayOffset = useMemo(() => {
+    const now = new Date();
+    const start = Date.UTC(now.getFullYear(), 0, 0);
+    const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+    return Math.floor((today - start) / 864e5);
+  }, []);
+
+  const entdecken = useMemo(
+    () => (loaded && status === "ok" ? buildDiscovery(unseen, likedGenres, dayOffset) : null),
+    [loaded, status, unseen, likedGenres, dayOffset]
+  );
+  const serien = useMemo(
+    () =>
+      loaded && status === "ok"
+        ? buildDiscovery(
+            unseen.filter((t) => t.mediaType === "tv"),
+            likedGenres,
+            dayOffset + 1
+          )
+        : null,
+    [loaded, status, unseen, likedGenres, dayOffset]
+  );
+  const filme = useMemo(
+    () =>
+      loaded && status === "ok"
+        ? buildDiscovery(
+            unseen.filter((t) => t.mediaType === "movie"),
+            likedGenres,
+            dayOffset + 2
+          )
+        : null,
+    [loaded, status, unseen, likedGenres, dayOffset]
+  );
+  const freshTrending = useMemo(() => trending.filter((t) => !seen.includes(t.id)), [trending, seen]);
+  const filteredResults = useMemo(
+    () =>
+      results === null
+        ? null
+        : results.filter((t) =>
+            view === "serien" ? t.mediaType === "tv" : view === "filme" ? t.mediaType === "movie" : true
+          ),
+    [results, view]
+  );
 
   function surprise() {
     const mine = household.filter(onMine);
@@ -299,39 +393,11 @@ export default function TvPage() {
   }
 
   function Row({ heading, titles, reasons }: { heading: string; titles: Title[]; reasons?: Map<string, string> }) {
-    const rowRef = useRef<HTMLDivElement>(null);
     if (titles.length === 0) return null;
-    function scrollRow(dir: 1 | -1) {
-      const el = rowRef.current;
-      if (!el) return;
-      el.scrollBy({ left: dir * Math.max(el.clientWidth * 0.8, 320), behavior: "smooth" });
-    }
     return (
       <section aria-label={heading} className="mt-6">
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="text-xl font-extrabold text-white">{heading}</h2>
-          <div className="flex shrink-0 gap-2">
-            <button
-              data-tv
-              type="button"
-              onClick={() => scrollRow(-1)}
-              aria-label={`${heading}: nach links scrollen`}
-              className="tv-focusable rounded-xl bg-ink-800 px-3 py-1.5 text-lg font-bold text-white"
-            >
-              ‹
-            </button>
-            <button
-              data-tv
-              type="button"
-              onClick={() => scrollRow(1)}
-              aria-label={`${heading}: nach rechts scrollen`}
-              className="tv-focusable rounded-xl bg-ink-800 px-3 py-1.5 text-lg font-bold text-white"
-            >
-              ›
-            </button>
-          </div>
-        </div>
-        <div ref={rowRef} className="no-scrollbar -mx-1 mt-4 flex snap-x gap-4 overflow-x-auto px-1 pb-2">
+        <h2 className="text-xl font-extrabold text-white">{heading}</h2>
+        <div className="no-scrollbar -mx-1 mt-4 flex snap-x gap-4 overflow-x-auto px-1 pb-2">
           {titles.map((t) => (
             <Card key={t.id} t={t} reason={reasons?.get(t.id)} />
           ))}
@@ -342,8 +408,8 @@ export default function TvPage() {
 
   if (status === "setup") {
     return (
-      <div className="tv-root bg-[#070b16] text-white">
-        <h1 className="text-4xl font-black">StreamFinder TV</h1>
+      <div className="tv-root text-white">
+        <h1 className="text-4xl font-black">StreamFinder</h1>
         <div className="mt-6 max-w-2xl rounded-3xl border border-white/10 bg-ink-800 p-8" role="alert">
           <h2 className="text-2xl font-bold">API-Schlüssel fehlt</h2>
           <p className="mt-2 text-xl text-slate-300">
@@ -357,8 +423,8 @@ export default function TvPage() {
   }
   if (status === "error") {
     return (
-      <div className="tv-root bg-[#070b16] text-white" role="alert">
-        <h1 className="text-4xl font-black">StreamFinder TV</h1>
+      <div className="tv-root text-white" role="alert">
+        <h1 className="text-4xl font-black">StreamFinder</h1>
         <p className="mt-6 text-2xl">Feed derzeit nicht verfügbar. Prüfe die Internetverbindung.</p>
       </div>
     );
@@ -366,51 +432,52 @@ export default function TvPage() {
 
   const saved = pool.filter((t) => watchlist.some((w) => w.id === t.id));
 
+  const viewTitle: Record<View, string> = {
+    entdecken: "Entdecken",
+    serien: "Serien",
+    filme: "Filme",
+    dienste: "Meine Dienste",
+    liste: "Meine Liste"
+  };
+
   return (
-    <div className="tv-root bg-[#070b16] text-white">
-      <header className="mb-4">
-        <h1 className="font-black tracking-tight">StreamFinder TV</h1>
-        <p className="mt-1 text-base text-slate-300">
-          Echte Verfügbarkeiten deiner Abos · Deutschland (DE)
-        </p>
-      </header>
-
-      <section
-        aria-label="Bedienungsanleitung"
-        className="mb-4 max-w-3xl rounded-2xl border border-white/10 bg-ink-800 p-4"
-      >
-        <h2 className="text-base font-extrabold text-white">Bedienung mit der Fernbedienung</h2>
-        <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-slate-200">
-          <li><strong className="text-white">Pfeiltasten:</strong> nach oben, unten, links und rechts bewegen.</li>
-          <li><strong className="text-white">OK:</strong> markierten Button oder Film auswählen.</li>
-          <li><strong className="text-white">Zurück-Taste:</strong> Detailansicht schließen.</li>
-          <li>Oben wählst du einen Bereich: <strong className="text-white">Suchen, Meine Dienste, Meine Liste.</strong></li>
-          <li>Der grüne Rahmen zeigt immer, wo du gerade bist.</li>
-        </ol>
-      </section>
-
-      <nav aria-label="TV-Bereiche" className="mb-2 flex flex-wrap gap-2">
-        {TABS.map((t) => (
+    <div className="tv-shell">
+      <nav aria-label="Bereiche" className="tv-rail">
+        <div aria-hidden className="tv-rail-logo">S</div>
+        {VIEWS.map((v) => (
           <button
-            key={t.id}
+            key={v.id}
             data-tv
             type="button"
             onClick={() => {
-              setTab(t.id);
+              setView(v.id);
               setDetailId(null);
+              setResults(null);
             }}
-            aria-current={tab === t.id ? "page" : undefined}
-            className={`tv-focusable rounded-xl px-5 py-2.5 text-lg font-bold ${
-              tab === t.id ? "bg-white text-slate-900" : "bg-ink-800 text-white"
-            }`}
+            aria-current={view === v.id ? "page" : undefined}
+            aria-label={v.label}
+            title={v.label}
+            className={`tv-focusable tv-rail-item ${view === v.id ? "is-active" : ""}`}
           >
-            {t.label}
-            {t.id === "liste" && watchlist.length > 0 ? ` (${watchlist.length})` : ""}
+            <span aria-hidden className="tv-rail-icon">{v.icon}</span>
+            <span className="tv-rail-label">
+              {v.label}
+              {v.id === "liste" && watchlist.length > 0 ? ` (${watchlist.length})` : ""}
+            </span>
           </button>
         ))}
       </nav>
 
-      {tab === "suchen" && (
+      <div className="tv-main">
+        <header className="mb-2">
+          <p className="tv-eyebrow">StreamFinder</p>
+          <h1 className="font-black tracking-tight">{viewTitle[view]}</h1>
+          <p className="mt-1 text-sm text-slate-300">
+            Ganz nach links steuern öffnet das Menü · OK wählt · Zurück schließt die Info. Echte Daten · Deutschland (DE).
+          </p>
+        </header>
+
+      {(view === "entdecken" || view === "serien" || view === "filme") && (
         <>
           <form
             role="search"
@@ -442,10 +509,9 @@ export default function TvPage() {
               Überrasch mich
             </button>
           </form>
-          {results !== null && (
-            <Row heading={results.length === 0 ? "Keine Ergebnisse" : "Suchergebnisse"} titles={results} />
-          )}
-          {results === null && (
+          {filteredResults !== null ? (
+            <Row heading={filteredResults.length === 0 ? "Keine Ergebnisse" : "Suchergebnisse"} titles={filteredResults} />
+          ) : view === "entdecken" ? (
             <>
               {continueWatching.length > 0 && (
                 <Row
@@ -457,20 +523,37 @@ export default function TvPage() {
               {services.length > 0 && (
                 <Row heading="Für meinen Haushalt" titles={household.filter(onMine)} />
               )}
-              {forYou.length > 0 && (
-                <Row
-                  heading="Für dich"
-                  titles={forYou.map((s) => s.title)}
-                  reasons={new Map(forYou.map((s) => [s.title.id, s.reasons[0] ?? ""] as [string, string]))}
-                />
+              {entdecken && entdecken.spotlight.length > 0 && (
+                <Row heading="Neu für dich – gemischt" titles={entdecken.spotlight} reasons={entdecken.reasons} />
               )}
-              <Row heading="Im Trend" titles={trending} />
+              {entdecken?.genreRails.map((r) => (
+                <Row key={r.heading} heading={r.heading} titles={r.titles} />
+              ))}
+              <Row heading="Im Trend" titles={freshTrending} />
+            </>
+          ) : view === "serien" ? (
+            <>
+              {serien && serien.spotlight.length > 0 && (
+                <Row heading="Serien für dich" titles={serien.spotlight} reasons={serien.reasons} />
+              )}
+              {serien?.genreRails.map((r) => (
+                <Row key={r.heading} heading={r.heading} titles={r.titles} />
+              ))}
+            </>
+          ) : (
+            <>
+              {filme && filme.spotlight.length > 0 && (
+                <Row heading="Filme für dich" titles={filme.spotlight} reasons={filme.reasons} />
+              )}
+              {filme?.genreRails.map((r) => (
+                <Row key={r.heading} heading={r.heading} titles={r.titles} />
+              ))}
             </>
           )}
         </>
       )}
 
-      {tab === "dienste" && (
+      {view === "dienste" && (
         <section aria-label="Dienste" className="mt-4 space-y-4">
           <p className="max-w-3xl text-base text-slate-300">
             Wähle mit OK deine Haushalts-Abos. Echte Anbieterliste von TMDb (DE). Alles bleibt auf diesem Gerät.
@@ -489,7 +572,7 @@ export default function TvPage() {
         </section>
       )}
 
-      {tab === "liste" && (
+      {view === "liste" && (
         <section aria-label="Meine Liste" className="mt-4">
           {saved.length === 0 ? (
             <p className="text-base text-slate-300">
@@ -546,7 +629,7 @@ export default function TvPage() {
                 tvMode
                 onToggleWatch={() => detail && toggleWatch(detail.id, { title: detail.title, year: detail.year, mediaType: detail.mediaType, posterPath: detail.posterPath })}
                 onToggleSeen={tvToggleSeen}
-                onSetInterest={(dir) => detail && setInterest(detail.id, dir)}
+                onSetInterest={(dir) => detail && setInterest(detail.id, dir, detail.genres)}
               />
             </div>
             {tvIsSeries && tvSeasons.length > 0 && detailId && (
@@ -597,6 +680,7 @@ export default function TvPage() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

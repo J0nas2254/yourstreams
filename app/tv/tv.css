@@ -1,34 +1,178 @@
-/* TV-Layout: natürliche Größen, Overscan-Abstand, gut sichtbarer Fokus.
-   Bewusst nicht übergroß, damit alles ohne Scrollen erreichbar wirkt. */
-.tv-root {
-  font-size: 16px;
-  padding: max(2vw, 16px);
+/* StreamFinder TV: App-Gefühl statt Webseite.
+   Links eine schmale Glas-Leiste, die sich erst beim Ansteuern
+   (ganz nach links) ausklappt. Fokus: heller Glow wie bei tvOS. */
+
+.tv-shell {
+  display: flex;
   min-height: 100vh;
+  color: #fff;
+  background:
+    radial-gradient(1200px 600px at 85% -10%, rgba(56, 89, 199, 0.28), transparent 60%),
+    radial-gradient(900px 500px at -10% 110%, rgba(120, 60, 180, 0.22), transparent 60%),
+    linear-gradient(180deg, #0a1128 0%, #070b16 55%, #05070f 100%);
 }
 
-.tv-root h1 {
+/* ---- Seitenleiste: eingeklappt nur Icons, klappt bei Hover/Fokus aus ---- */
+.tv-rail {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  flex-shrink: 0;
+  width: 72px;
+  margin: 12px 0 12px 12px;
+  padding: 16px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.08);
+  -webkit-backdrop-filter: blur(28px) saturate(1.4);
+  backdrop-filter: blur(28px) saturate(1.4);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+  transition: width 180ms ease;
+  z-index: 20;
+}
+
+.tv-rail:hover,
+.tv-rail:focus-within {
+  width: 228px;
+}
+
+.tv-rail-logo {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 16px;
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: #fff;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.85), rgba(168, 85, 247, 0.85));
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5);
+  flex-shrink: 0;
+}
+
+.tv-rail-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 12px;
+  border-radius: 16px;
+  color: #e2e8f0;
+  background: transparent;
+  border: 1px solid transparent;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.tv-rail-item.is-active {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.18);
+  color: #fff;
+}
+
+.tv-rail-icon {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.35rem;
+  margin: 0 auto;
+}
+
+.tv-rail:hover .tv-rail-icon,
+.tv-rail:focus-within .tv-rail-icon {
+  margin: 0;
+}
+
+.tv-rail-label {
+  font-size: 1.05rem;
+  font-weight: 700;
+  opacity: 0;
+  overflow: hidden;
+  transition: opacity 150ms ease;
+}
+
+.tv-rail:hover .tv-rail-label,
+.tv-rail:focus-within .tv-rail-label {
+  opacity: 1;
+}
+
+/* ---- Hauptbereich ---- */
+.tv-main {
+  flex: 1;
+  min-width: 0;
+  padding: max(2vw, 16px);
+  padding-left: max(2vw, 20px);
+}
+
+.tv-main h1 {
   font-size: 1.6rem;
   line-height: 1.2;
 }
 
+.tv-eyebrow {
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+/* ---- Glas-Karten ---- */
+.tv-card {
+  background: rgba(255, 255, 255, 0.07) !important;
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+}
+
+/* ---- Fokus: heller Glow, kein grüner Rahmen mehr ---- */
 .tv-focusable {
   outline: none;
   transition: transform 120ms ease, box-shadow 120ms ease, background-color 120ms ease;
 }
 
 .tv-focusable:focus {
-  box-shadow: 0 0 0 3px #34d399, 0 0 0 5px #101c3d, 0 8px 20px rgba(0, 0, 0, 0.45);
-  transform: scale(1.02);
+  box-shadow:
+    0 0 0 3px rgba(255, 255, 255, 0.95),
+    0 12px 32px rgba(0, 0, 0, 0.55);
+  transform: scale(1.04);
   z-index: 2;
   position: relative;
 }
 
 .tv-card:focus {
-  background-color: #10234d !important;
+  background: rgba(255, 255, 255, 0.14) !important;
   color: #fff !important;
 }
 
-.tv-card:focus p,
-.tv-card:focus span {
-  color: #e2e8f0 !important;
+.tv-rail-item:focus {
+  transform: none;
+  background: rgba(255, 255, 255, 0.22);
+}
+
+/* Alte Klasse weiter unterstützen (Setup-/Fehler-Seiten) */
+.tv-root {
+  font-size: 16px;
+  padding: max(2vw, 16px);
+  min-height: 100vh;
+  color: #fff;
+  background:
+    radial-gradient(1200px 600px at 85% -10%, rgba(56, 89, 199, 0.28), transparent 60%),
+    linear-gradient(180deg, #0a1128 0%, #070b16 55%, #05070f 100%);
+}
+
+.tv-root h1 {
+  font-size: 1.6rem;
+  line-height: 1.2;
 }
